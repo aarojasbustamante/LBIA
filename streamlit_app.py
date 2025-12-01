@@ -35,22 +35,12 @@ st.markdown("""
     .stApp {background:#1a1a1a;}
     * {color: #ffffff !important;}
     
-    /* Remove white containers/blocks between sections - make them dark */
+    /* Remove white containers/blocks between sections */
     [data-testid="stHorizontalBlock"] {
-        background: #1a1a1a !important;
+        background: transparent !important;
     }
     .element-container {
-        background: #1a1a1a !important;
-    }
-    [data-testid="stVerticalBlock"] > div {
-        background: #1a1a1a !important;
-    }
-    div[data-testid="stMarkdownContainer"] {
-        background: #1a1a1a !important;
-    }
-    /* Target the markdown divider specifically */
-    div[data-testid="column"] > div {
-        background: #1a1a1a !important;
+        background: transparent !important;
     }
 
     /* Hero */
