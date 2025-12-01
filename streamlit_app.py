@@ -35,12 +35,20 @@ st.markdown("""
     .stApp {background:#1a1a1a;}
     * {color: #ffffff !important;}
     
-    /* Remove white containers/blocks between sections */
+    /* Remove white containers/blocks between sections - match dark background */
     [data-testid="stHorizontalBlock"] {
-        background: transparent !important;
+        background: #1a1a1a !important;
     }
     .element-container {
-        background: transparent !important;
+        background: #1a1a1a !important;
+    }
+    /* Target all divs that might create white boxes */
+    div[class*="st-"] {
+        background-color: #1a1a1a !important;
+    }
+    /* Specific override for markdown containers */
+    div[data-testid="stMarkdownContainer"] + div {
+        background: #1a1a1a !important;
     }
 
     /* Hero */
