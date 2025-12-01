@@ -42,6 +42,19 @@ st.markdown("""
     .element-container {
         background: transparent !important;
     }
+    
+    /* Hide the white spacing box between expander and next section */
+    details[open] + div[data-testid="stVerticalBlock"] > div:first-child {
+        display: none !important;
+    }
+    /* Alternative: make it match background if display:none doesn't work */
+    details + div[data-testid="stVerticalBlock"] > div:first-child {
+        background: #1a1a1a !important;
+        height: 0px !important;
+        min-height: 0px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
 
     /* Hero */
     .hero {
