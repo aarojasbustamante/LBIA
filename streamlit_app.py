@@ -1,5 +1,6 @@
 # -----------------------------
-# LBIA DASHBOARD - FINAL APP1.PY (UPDATED)
+# LBIA ANALYTICS PLATFORM
+# Enterprise Business Intelligence Dashboard
 # -----------------------------
 
 import streamlit as st
@@ -15,7 +16,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Page config
 st.set_page_config(
-    page_title="LBIA Dashboard",
+    page_title="LBIA Analytics Platform",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -27,78 +28,132 @@ st.markdown("<style>.block-container {padding-top: 0 !important;}</style>", unsa
 # Global CSS
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     * {font-family: 'Inter', sans-serif;}
 
     [data-testid="stSidebar"] {display:none;}
     #MainMenu, footer, header {visibility:hidden;}
-    .stApp {background:#1a1a1a;}
+    .stApp {background:#0f172a;}
     * {color: #ffffff !important;}
 
-    /* Hero */
+    /* Hero Banner */
     .hero {
-        background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
-        border-radius: 16px;
-        padding: 36px 40px;
+        background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #06b6d4 100%);
+        border-radius: 12px;
+        padding: 48px 48px;
         margin-bottom: 4px;
-        min-height: 140px;
+        box-shadow: 0 20px 60px rgba(59, 130, 246, 0.3);
+        position: relative;
+        overflow: hidden;
     }
+    .hero::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+        opacity: 0.3;
+    }
+    .hero-content {position: relative; z-index: 1;}
     .hero-chip {
         display:inline-block;
-        background:rgba(255,255,255,0.15);
+        background:rgba(255,255,255,0.2);
+        backdrop-filter: blur(10px);
         color:white;
-        padding:6px 14px;
-        border-radius:20px;
+        padding:8px 16px;
+        border-radius:24px;
         font-size:12px;
-        font-weight:500;
+        font-weight:600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border: 1px solid rgba(255,255,255,0.2);
     }
-    .hero-title {color:white;font-size:28px;font-weight:700;margin:8px 0 4px 0;}
-    .hero-desc {color:rgba(255,255,255,0.85);font-size:15px;max-width:600px;}
+    .hero-title {
+        color:white;
+        font-size:42px;
+        font-weight:800;
+        margin:16px 0 8px 0;
+        letter-spacing: -0.5px;
+    }
+    .hero-desc {
+        color:rgba(255,255,255,0.9);
+        font-size:16px;
+        max-width:700px;
+        line-height: 1.6;
+    }
 
-    /* All buttons rectangular (nav + Run Analysis) */
+    /* Navigation & Buttons */
     .stButton > button {
         background: linear-gradient(135deg,#3b82f6,#2563eb);
-        color: white;
+        color: white !important;
         border: none;
         border-radius: 8px;
-        padding: 6px 18px;
-        font-weight: 500;
-        font-size: 13px;
+        padding: 10px 24px;
+        font-weight: 600;
+        font-size: 14px;
+        transition: all 0.2s;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
     }
     .stButton > button:hover {
-        box-shadow: 0 4px 12px rgba(59,130,246,0.35);
+        transform: translateY(-1px);
+        box-shadow: 0 8px 20px rgba(59,130,246,0.4);
     }
 
-    /* AI Box */
+    /* AI Insights Box */
     .ai-box {
         background:white;
-        border-radius:12px;
+        border-radius:16px;
         border:1px solid #e2e8f0;
-        padding:20px 24px;
-        margin-top:16px;
+        padding:28px 32px;
+        margin-top:24px;
         margin-bottom:48px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.08);
     }
     .ai-box * {color: #0f172a !important;}
-    .ai-header {display:flex;gap:12px;align-items:center;margin-bottom:0;}
+    .ai-header {
+        display:flex;
+        gap:14px;
+        align-items:center;
+        margin-bottom:4px;
+    }
     .ai-icon {
-        width:36px;height:36px;
+        width:44px;
+        height:44px;
         background:linear-gradient(135deg,#3b82f6,#6366f1);
-        border-radius:8px;color:white !important;
-        display:flex;align-items:center;justify-content:center;
+        border-radius:10px;
+        color:white !important;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size:22px;
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    }
+    .ai-title {
+        font-size:20px;
+        font-weight:700;
+        color:#0f172a !important;
+    }
+    .ai-subtitle {
+        font-size:13px;
+        color:#64748b !important;
+        margin-top:2px;
     }
     .ai-response {
-        background:#f8fafc;border-left:3px solid #3b82f6;
-        padding:16px;border-radius:8px;margin-top:12px;
-        font-size:14px;white-space:pre-wrap;line-height:1.6;
+        background:#f8fafc;
+        border-left:4px solid #3b82f6;
+        padding:20px 24px;
+        border-radius:12px;
+        margin-top:16px;
+        font-size:15px;
+        white-space:pre-wrap;
+        line-height:1.7;
         color: #0f172a !important;
     }
     .ai-response * {color: #0f172a !important;}
     .ai-response p {color: #0f172a !important;}
     .ai-response div {color: #0f172a !important;}
-
-    /* Run Analysis – same style but scoped inside AI box if you want to tweak further later */
-    .ai-box .stButton > button {
-        border-radius: 8px;
         padding: 6px 18px;
         font-size: 13px;
         min-width: 120px;
@@ -179,6 +234,45 @@ st.markdown("""
     div[data-baseweb="input"] {
         display: none;
     }
+    
+    /* Professional Metric Cards */
+    .metric-card {
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        padding: 24px 28px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        transition: all 0.2s;
+    }
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    }
+    .metric-label {
+        color: #64748b !important;
+        font-size: 13px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+    }
+    .metric-value {
+        color: #0f172a !important;
+        font-size: 36px;
+        font-weight: 800;
+        line-height: 1;
+        margin-bottom: 4px;
+    }
+    .metric-delta {
+        font-size: 14px;
+        font-weight: 600;
+    }
+    .metric-delta.positive {
+        color: #10b981 !important;
+    }
+    .metric-delta.negative {
+        color: #ef4444 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -199,8 +293,8 @@ AI_HEADER_HTML = """
 <div class="ai-header">
     <div class="ai-icon">🤖</div>
     <div>
-        <p style='margin:0;font-size:13px;font-weight:600;'>AI Analyst</p>
-        <p style='margin:0;font-size:11px;color:#64748b;'>Powered by GPT</p>
+        <div class="ai-title">AI-Powered Insights</div>
+        <div class="ai-subtitle">Powered by OpenAI GPT-3.5</div>
     </div>
 </div>
 """
@@ -333,9 +427,11 @@ if page == "Overview":
 
     st.markdown("""
     <div class='hero'>
-        <span class='hero-chip'>AI-Powered Business Intelligence</span>
-        <h1 class='hero-title'>Overview</h1>
-        <p class='hero-desc'>Real-time retail metrics and AI insights.</p>
+        <div class='hero-content'>
+            <span class='hero-chip'>🚀 ENTERPRISE ANALYTICS PLATFORM</span>
+            <h1 class='hero-title'>Business Intelligence Dashboard</h1>
+            <p class='hero-desc'>Unlock actionable insights from your retail data with AI-powered analytics, real-time KPIs, and predictive forecasting.</p>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -480,21 +576,73 @@ if page == "Overview":
     )
     render_ai("overview", "AI insights for your overall business performance.", overview_summary)
 
+    st.markdown("<br>", unsafe_allow_html=True)
+    
     a, b, c, d = st.columns(4)
-    a.metric("Total Revenue", f"£{rev:,.0f}")
-    b.metric("Total Orders", f"{orders:,}")
-    c.metric("Products", f"{products:,}")
-    d.metric("Customers", f"{customers:,}")
+    
+    with a:
+        st.markdown(f"""
+        <div class='metric-card'>
+            <div class='metric-label'>💰 Total Revenue</div>
+            <div class='metric-value'>£{rev:,.0f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with b:
+        st.markdown(f"""
+        <div class='metric-card'>
+            <div class='metric-label'>📦 Total Orders</div>
+            <div class='metric-value'>{orders:,}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with c:
+        st.markdown(f"""
+        <div class='metric-card'>
+            <div class='metric-label'>🏷️ Products</div>
+            <div class='metric-value'>{products:,}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with d:
+        st.markdown(f"""
+        <div class='metric-card'>
+            <div class='metric-label'>👥 Customers</div>
+            <div class='metric-value'>{customers:,}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    e, f, _, _ = st.columns(4)
-    e.metric("Avg Order Value", f"£{(rev / orders if orders > 0 else 0):,.0f}")
-    f.metric("Return Rate", f"{return_rate:.1f}%")
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    e, f = st.columns(2)
+    
+    with e:
+        st.markdown(f"""
+        <div class='metric-card'>
+            <div class='metric-label'>📊 Avg Order Value</div>
+            <div class='metric-value'>£{(rev / orders if orders > 0 else 0):,.0f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with f:
+        st.markdown(f"""
+        <div class='metric-card'>
+            <div class='metric-label'>↩️ Return Rate</div>
+            <div class='metric-value'>{return_rate:.1f}%</div>
+        </div>
+        """, unsafe_allow_html=True)
 
+    st.markdown("<br>", unsafe_allow_html=True)
+    
     st.markdown("""
-The overview gives you a quick read on overall health - revenue, orders, product breadth, and customer base.
-You can check this daily to catch sudden drops in orders, unusual return spikes, or changes in average order
-value that might signal pricing or promotion issues.
-    """)
+    <div style='background:white;padding:20px 24px;border-radius:12px;border-left:4px solid #3b82f6;'>
+        <p style='color:#0f172a !important;line-height:1.7;margin:0;'>
+            <strong style='color:#0f172a !important;'>Executive Summary:</strong> Monitor your business health at a glance. 
+            Track revenue trends, order volume, product portfolio, and customer base. Use these metrics daily to identify 
+            sudden drops in orders, unusual return spikes, or shifts in average order value that may signal pricing or promotion issues.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
     # Overview chart - monthly revenue
     trend_df = get_data("""
@@ -525,9 +673,11 @@ elif page == "Revenue":
 
     st.markdown("""
     <div class='hero'>
-        <span class='hero-chip'>Revenue Analytics</span>
-        <h1 class='hero-title'>Revenue Performance</h1>
-        <p class='hero-desc'>Analyze product revenue, customer geography, and purchasing behavior.</p>
+        <div class='hero-content'>
+            <span class='hero-chip'>💰 REVENUE ANALYTICS</span>
+            <h1 class='hero-title'>Revenue Performance Analysis</h1>
+            <p class='hero-desc'>Deep-dive into product revenue streams, customer geography distribution, and purchasing behavior patterns to optimize revenue growth.</p>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -649,9 +799,11 @@ elif page == "Inventory":
 
     st.markdown("""
     <div class='hero'>
-        <span class='hero-chip'>Inventory Optimization</span>
-        <h1 class='hero-title'>Inventory Intelligence</h1>
-        <p class='hero-desc'>Data-driven restocking, turnover analysis, and inventory health monitoring.</p>
+        <div class='hero-content'>
+            <span class='hero-chip'>📦 INVENTORY OPTIMIZATION</span>
+            <h1 class='hero-title'>Inventory Intelligence</h1>
+            <p class='hero-desc'>Leverage data-driven insights for intelligent restocking, turnover analysis, and comprehensive inventory health monitoring.</p>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -881,9 +1033,11 @@ elif page == "Forecast":
 
     st.markdown("""
     <div class='hero'>
-        <span class='hero-chip'>Predictive Analytics</span>
-        <h1 class='hero-title'>Sales Forecasting</h1>
-        <p class='hero-desc'>ML-powered revenue predictions with accuracy metrics.</p>
+        <div class='hero-content'>
+            <span class='hero-chip'>🔮 PREDICTIVE ANALYTICS</span>
+            <h1 class='hero-title'>Sales Forecasting Engine</h1>
+            <p class='hero-desc'>Advanced machine learning models deliver accurate revenue predictions with validated accuracy metrics and confidence intervals.</p>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1064,19 +1218,40 @@ elif page == "About":
 
     st.markdown("""
     <div class='hero'>
-        <span class='hero-chip'>About LBIA</span>
-        <h1 class='hero-title'>Our Mission</h1>
-        <p class='hero-desc'>AI-powered intelligence for small and medium retail businesses.</p>
+        <div class='hero-content'>
+            <span class='hero-chip'>🏢 ABOUT LBIA</span>
+            <h1 class='hero-title'>Our Mission & Vision</h1>
+            <p class='hero-desc'>Democratizing enterprise-grade AI-powered business intelligence for small and medium retail businesses worldwide.</p>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
-    st.subheader("What We Do")
-    st.write("""
-LBIA (Local Business Intelligence Assistant) helps small and medium retailers turn raw transaction data
-into decisions using real-time dashboards, forecasting, and AI-generated recommendations.
-    """)
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        <div style='background:white;padding:32px;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 4px 12px rgba(0,0,0,0.05);'>
+            <h3 style='color:#0f172a !important;margin-top:0;'>🎯 What We Do</h3>
+            <p style='color:#334155 !important;line-height:1.7;'>
+                LBIA (Local Business Intelligence Assistant) empowers small and medium retailers to transform raw transaction data into strategic decisions through real-time dashboards, predictive forecasting, and AI-generated recommendations.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("""
+        <div style='background:white;padding:32px;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 4px 12px rgba(0,0,0,0.05);'>
+            <h3 style='color:#0f172a !important;margin-top:0;'>⚡ Our Technology</h3>
+            <p style='color:#334155 !important;line-height:1.7;'>
+                Built on cutting-edge technologies including OpenAI GPT-3.5 for insights, scikit-learn for predictive analytics, and Streamlit for real-time data visualization.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
 
-    st.markdown("---")
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    
     st.subheader("Founding Team")
 
     c1, c2, c3, c4 = st.columns(4)
