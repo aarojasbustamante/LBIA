@@ -354,78 +354,172 @@ Insights:"""
 
 
 def parse_context_for_insights(context, page_key):
-    """Parse the context data and generate insights directly."""
+    """Parse the context data and generate meaningful business insights."""
     try:
         insights = []
         
         if page_key == "overview":
-            # Parse overview data
-            if "Total Revenue:" in context:
-                revenue = context.split("Total Revenue:")[1].split(".")[0].strip()
-                insights.append(f"- Total Revenue: {revenue}")
-            if "Total Orders:" in context:
-                orders = context.split("Total Orders:")[1].split(".")[0].strip()
-                insights.append(f"- Total Orders: {orders}")
+            # Parse overview data and generate insights
+            if "Total Revenue:" in context and "Total Orders:" in context:
+                revenue_str = context.split("Total Revenue:")[1].split(".")[0].strip().replace("£", "").replace(",", "")
+                orders_str = context.split("Total Orders:")[1].split(".")[0].strip().replace(",", "")
+                try:
+                    revenue = float(revenue_str)
+                    orders = int(orders_str)
+                    aov = revenue / orders if orders > 0 else 0
+                    
+                    if revenue > 1000000:
+                        insights.append(f"- Strong revenue performance at £{revenue:,.0f}, indicating a healthy business with significant market presence")
+                    elif revenue > 500000:
+                        insights.append(f"- Moderate revenue of £{revenue:,.0f} with {orders:,} orders suggests steady business operations")
+                    else:
+                        insights.append(f"- Revenue of £{revenue:,.0f} from {orders:,} orders presents growth opportunities")
+                    
+                    if aov > 500:
+                        insights.append(f"- High average order value of £{aov:,.0f} indicates premium customer segment or bulk purchases")
+                    elif aov > 200:
+                        insights.append(f"- Average order value of £{aov:,.0f} shows healthy transaction sizes")
+                    else:
+                        insights.append(f"- Average order value of £{aov:,.0f} suggests opportunity for upselling and cross-selling strategies")
+                except:
+                    pass
+                    
             if "Return Rate:" in context:
-                return_rate = context.split("Return Rate:")[1].split(".")[0].strip()
-                insights.append(f"- Return Rate: {return_rate}")
-            if "Average Order Value:" in context:
-                aov = context.split("Average Order Value:")[1].split(".")[0].strip()
-                insights.append(f"- Average Order Value: {aov}")
+                return_rate_str = context.split("Return Rate:")[1].split("%")[0].strip()
+                try:
+                    return_rate = float(return_rate_str)
+                    if return_rate > 15:
+                        insights.append(f"- Return rate of {return_rate:.1f}% is concerning - investigate product quality, descriptions, and customer expectations")
+                    elif return_rate > 8:
+                        insights.append(f"- Return rate of {return_rate:.1f}% is within acceptable range but monitor for improvement opportunities")
+                    else:
+                        insights.append(f"- Excellent return rate of {return_rate:.1f}% indicates strong product-market fit and customer satisfaction")
+                except:
+                    pass
+                    
+            if "Number of Customers:" in context:
+                customers_str = context.split("Number of Customers:")[1].split(".")[0].strip().replace(",", "")
+                try:
+                    customers = int(customers_str)
+                    if customers > 3000:
+                        insights.append(f"- Large customer base of {customers:,} provides stability - focus on retention and lifetime value optimization")
+                    elif customers > 1000:
+                        insights.append(f"- Customer base of {customers:,} shows good market reach - consider loyalty programs to increase repeat purchases")
+                    else:
+                        insights.append(f"- Customer base of {customers:,} indicates early growth stage - prioritize customer acquisition strategies")
+                except:
+                    pass
                 
         elif page_key == "revenue":
-            # Parse revenue data
+            # Parse revenue data and generate insights
+            insights.append("- Revenue Analysis:")
+            
             if "Top 5 Products by Revenue:" in context:
                 products_section = context.split("Top 5 Products by Revenue:")[1].split("Top 5 Countries")[0]
-                products = products_section.split(".")[:3]  # Get first 3 products
+                products = products_section.split(".")[:3]
+                
+                revenue_values = []
                 for prod in products:
-                    if prod.strip() and ":" in prod:
-                        insights.append(f"- {prod.strip()}")
+                    if "£" in prod:
+                        try:
+                            rev_str = prod.split("£")[1].split("revenue")[0].strip().replace(",", "")
+                            revenue_values.append(float(rev_str))
+                        except:
+                            pass
+                
+                if len(revenue_values) >= 2:
+                    top_product_rev = revenue_values[0]
+                    second_product_rev = revenue_values[1]
+                    concentration = (top_product_rev / sum(revenue_values)) * 100 if sum(revenue_values) > 0 else 0
+                    
+                    if concentration > 40:
+                        insights.append(f"- High revenue concentration ({concentration:.0f}%) in top product creates dependency risk - diversify product portfolio")
+                    else:
+                        insights.append(f"- Well-balanced revenue distribution across top products reduces business risk")
+                    
+                    top_prod_name = products[0].split(":")[0].strip() if ":" in products[0] else "Top product"
+                    insights.append(f"- {top_prod_name} is your star performer - ensure consistent stock availability and consider product line extensions")
+                
             if "Top 5 Countries by Revenue:" in context:
                 countries_section = context.split("Top 5 Countries by Revenue:")[1]
-                countries = countries_section.split(".")[:2]  # Get first 2 countries
-                for country in countries:
-                    if country.strip() and ":" in country:
-                        insights.append(f"- {country.strip()}")
+                countries = countries_section.split(".")[:2]
+                
+                if len(countries) >= 2:
+                    top_country = countries[0].split(":")[0].strip() if ":" in countries[0] else "Primary market"
+                    insights.append(f"- {top_country} is your primary market - tailor marketing campaigns and inventory to this region's preferences")
+                    
+                if len(countries) >= 2:
+                    second_country = countries[1].split(":")[0].strip() if ":" in countries[1] else "Secondary market"
+                    insights.append(f"- Expanding presence in {second_country} represents growth opportunity - consider localized marketing strategies")
                         
         elif page_key == "inventory":
-            # Parse inventory data
-            if "Total Active Products:" in context:
-                products = context.split("Total Active Products:")[1].split(".")[0].strip()
-                insights.append(f"- Total Active Products: {products}")
-            if "Fast Movers:" in context:
-                fast = context.split("Fast Movers:")[1].split(".")[0].strip()
-                insights.append(f"- Fast Movers: {fast}")
-            if "Slow Movers:" in context:
-                slow = context.split("Slow Movers:")[1].split(".")[0].strip()
-                insights.append(f"- Slow Movers: {slow}")
+            # Parse inventory data and generate insights
+            if "Fast Movers:" in context and "Total Active Products:" in context:
+                fast_str = context.split("Fast Movers:")[1].split("products")[0].strip().replace(",", "")
+                total_str = context.split("Total Active Products:")[1].split(".")[0].strip().replace(",", "")
+                try:
+                    fast = int(fast_str)
+                    total = int(total_str)
+                    fast_pct = (fast / total * 100) if total > 0 else 0
+                    
+                    if fast_pct < 20:
+                        insights.append(f"- Only {fast_pct:.0f}% are fast movers - review slow-moving inventory for markdowns or discontinuation")
+                    elif fast_pct < 40:
+                        insights.append(f"- {fast_pct:.0f}% fast movers indicates balanced inventory - optimize reorder points for top performers")
+                    else:
+                        insights.append(f"- {fast_pct:.0f}% fast movers shows strong product-market fit - ensure adequate safety stock levels")
+                except:
+                    pass
+            
             if "Top Restock Priorities:" in context:
-                restock = context.split("Top Restock Priorities:")[1].split(".")[0].strip()
-                insights.append(f"- Priority Restock: {restock}")
+                restock_section = context.split("Top Restock Priorities:")[1].split("High Return")[0]
+                if "days left" in restock_section.lower():
+                    insights.append("- Urgent restock needs identified - prioritize purchase orders to avoid stockouts and lost sales")
+                    insights.append("- Implement automated reorder alerts to prevent future inventory gaps")
+                    
+            if "High Return Products:" in context:
+                high_return = context.split("High Return Products:")[1].split(".")[0]
+                if "No products" not in high_return and "return rate" in high_return.lower():
+                    insights.append("- High return rates on specific products require immediate investigation - check quality control and product descriptions")
+                else:
+                    insights.append("- No critical return rate issues - maintain current quality standards and customer communication")
                 
         elif page_key == "forecast":
-            # Parse forecast data
-            if "Next Month Forecast:" in context:
-                forecast = context.split("Next Month Forecast:")[1].split(".")[0].strip()
-                insights.append(f"- Next Month Forecast: {forecast}")
+            # Parse forecast data and generate insights
             if "Trend Direction:" in context:
-                trend = context.split("Trend Direction:")[1].split(".")[0].strip()
-                insights.append(f"- Trend: {trend}")
-            if "Model Accuracy:" in context:
-                accuracy = context.split("Model Accuracy:")[1].split(".")[0].strip()
-                insights.append(f"- Model Accuracy: {accuracy}")
-            if "Average Forecast:" in context:
-                avg = context.split("Average Forecast:")[1].split(".")[0].strip()
-                insights.append(f"- Average Forecast: {avg}")
+                trend = context.split("Trend Direction:")[1].split(".")[0].strip().lower()
+                if "upward" in trend:
+                    insights.append("- Positive revenue trend forecasted - prepare for scaling operations and inventory expansion")
+                    insights.append("- Consider increasing marketing budget to capitalize on growth momentum")
+                else:
+                    insights.append("- Downward trend warning - implement retention campaigns and review pricing strategy")
+                    insights.append("- Focus on cost optimization and high-margin product promotion")
+            
+            if "Model Accuracy:" in context and "MAPE" in context:
+                mape_str = context.split("MAPE =")[1].split("%")[0].strip()
+                try:
+                    mape = float(mape_str)
+                    if mape < 10:
+                        insights.append(f"- Excellent forecast accuracy (MAPE {mape:.1f}%) - high confidence for planning and budgeting decisions")
+                    elif mape < 20:
+                        insights.append(f"- Good forecast reliability (MAPE {mape:.1f}%) - suitable for operational planning with contingency buffers")
+                    else:
+                        insights.append(f"- Moderate forecast uncertainty (MAPE {mape:.1f}%) - use conservative estimates for critical decisions")
+                except:
+                    pass
+                    
+            if "Next Month Forecast:" in context:
+                forecast_str = context.split("Next Month Forecast:")[1].split(".")[0].strip()
+                insights.append(f"- {forecast_str} projected for next month - align staffing, inventory, and cash flow accordingly")
         
         if insights:
-            return "\n".join(insights)
+            return "\n".join(insights[:5])  # Limit to 5 insights
         else:
-            return "- Analysis complete. Review the data visualizations above for detailed insights."
+            return "- Insufficient data for detailed analysis. Continue tracking metrics for trend analysis."
             
     except Exception as e:
         logging.error(f"Parse error: {e}")
-        return "- Data analysis available. Please review the metrics and charts above."
+        return "- Data analysis in progress. Please review the detailed metrics and visualizations above for insights."
 
 
 def render_ai(page_key, description, context):
