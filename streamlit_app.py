@@ -474,7 +474,7 @@ if page == "Overview":
                         st.error(f"Error processing file: {str(e)}")
                         logging.error(f"Upload error: {e}")
 
-    st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
+    st.markdown("<div style='height:1px;background:linear-gradient(to right,transparent,rgba(100,116,139,0.3),transparent);margin:40px 0;'></div>", unsafe_allow_html=True)
 
     # Metrics
     rev = safe_value(get_data("SELECT SUM(line_total) FROM transaction_items WHERE is_return=0"))
@@ -1095,7 +1095,7 @@ LBIA (Local Business Intelligence Assistant) helps small and medium retailers tu
 into decisions using real-time dashboards, forecasting, and AI-generated recommendations.
     """)
 
-    st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
+    st.markdown("<div style='height:1px;background:linear-gradient(to right,transparent,rgba(100,116,139,0.3),transparent);margin:40px 0;'></div>", unsafe_allow_html=True)
     st.subheader("Founding Team")
 
     c1, c2, c3, c4 = st.columns(4)
