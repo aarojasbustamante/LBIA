@@ -252,8 +252,9 @@ def ai_insight(context):
             max_tokens=350
         )
         return out.choices[0].message.content
-    except Exception:
-        return "AI unavailable right now."
+    except Exception as e:
+        logging.error(f"AI error: {e}")
+        return f"AI temporarily unavailable. Error: {str(e)}"
 
 
 def render_ai(page_key, description, context):
