@@ -1082,8 +1082,10 @@ into decisions using real-time dashboards, forecasting, and AI-generated recomme
     c1, c2, c3, c4 = st.columns(4)
 
     with c1:
-        st.markdown("<div style='text-align:center;'><div style='font-size:140px;margin-bottom:10px;'>👩</div></div>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align:center;margin-top:0;'><strong>Simran Verma</strong><br/>Co-Founder</p>", unsafe_allow_html=True)
+        st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
+        st.image("Simran.png", width=200)
+        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align:center;margin-top:10px;'><strong>Simran Verma</strong><br/>Co-Founder</p>", unsafe_allow_html=True)
 
     with c2:
         st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
