@@ -291,10 +291,10 @@ def ai_insight(context, page_key="overview"):
         
         # Customize prompt based on page
         page_prompts = {
-            "overview": "Analyze this overall business performance data and provide 3-5 key insights about revenue, orders, customers, and returns as bullet points starting with '- '.",
-            "revenue": "Analyze this revenue data focusing on product performance and geographic distribution. Provide 3-5 specific revenue insights as bullet points starting with '- '.",
-            "inventory": "Analyze this inventory data focusing on stock levels, turnover, and risk management. Provide 3-5 inventory optimization insights as bullet points starting with '- '.",
-            "forecast": "Analyze this revenue forecast data focusing on trends, predictions, and forecast reliability. Provide 3-5 forecasting insights as bullet points starting with '- '."
+            "overview": "Analyze this overall business performance data and provide 3-5 key insights. Include specific numbers from the data (revenue, orders, customers, return rates). Format as bullet points starting with '- '.",
+            "revenue": "Analyze this revenue data focusing on product performance and geographic distribution. Include specific revenue amounts, units sold, and country names from the data. Provide 3-5 insights as bullet points starting with '- '.",
+            "inventory": "Analyze this inventory data focusing on stock levels and turnover. Include specific product names, stock quantities, days left, and return rates from the data. Provide 3-5 insights as bullet points starting with '- '.",
+            "forecast": "Analyze this revenue forecast data. Include specific revenue amounts, trend direction, and accuracy metrics from the data. Provide 3-5 insights as bullet points starting with '- '."
         }
         
         analysis_focus = page_prompts.get(page_key, page_prompts["overview"])
@@ -578,11 +578,18 @@ if page == "Overview":
     sold = safe_value(qty_df[["sold"]])
     returned = safe_value(qty_df[["returned"]])
     return_rate = returned / (sold + returned) * 100 if sold + returned > 0 else 0
+    avg_order = rev / orders if orders > 0 else 0
 
     # AI
     overview_summary = (
-        f"Revenue £{rev}, Orders {orders}, Products {products}, Customers {customers}, "
-        f"Sold {sold}, Returned {returned}."
+        f"Total Revenue: £{rev:,.0f}. "
+        f"Total Orders: {orders:,}. "
+        f"Number of Products: {products:,}. "
+        f"Number of Customers: {customers:,}. "
+        f"Items Sold: {sold:,}. "
+        f"Items Returned: {returned:,}. "
+        f"Return Rate: {return_rate:.1f}%. "
+        f"Average Order Value: £{avg_order:,.0f}."
     )
     render_ai("overview", "AI insights for your overall business performance.", overview_summary)
 
@@ -664,12 +671,25 @@ elif page == "Revenue":
 
     if top_df is not None and not top_df.empty:
         top_df.index = top_df.index + 1
+        top_products_text = ". ".join([
+            f"{row['Product']}: £{row['Revenue']:,.0f} revenue, {row['Units']:,} units"
+            for _, row in top_df.head(5).iterrows()
+        ])
+    else:
+        top_products_text = "No data available"
+        
     if country_df is not None and not country_df.empty:
         country_df.index = country_df.index + 1
+        countries_text = ". ".join([
+            f"{row['Country']}: £{row['Revenue']:,.0f} revenue, {row['Orders']:,} orders"
+            for _, row in country_df.head(5).iterrows()
+        ])
+    else:
+        countries_text = "No data available"
 
     revenue_summary = (
-        f"Top products:\n{top_df.to_string() if top_df is not None and not top_df.empty else 'No data'}\n\n"
-        f"Revenue by country:\n{country_df.to_string() if country_df is not None and not country_df.empty else 'No data'}"
+        f"Top 5 Products by Revenue: {top_products_text}. "
+        f"Top 5 Countries by Revenue: {countries_text}."
     )
     render_ai("revenue", "AI commentary on your revenue distribution.", revenue_summary)
 
@@ -826,15 +846,32 @@ elif page == "Inventory":
         slow_movers = len(inventory_metrics[inventory_metrics['Velocity_Class'] == 'Slow Mover'])
         avg_return_rate = inventory_metrics['Return_Rate'].mean()
         
+        # Format top restock priorities
+        if not restock_df.empty:
+            restock_text = ". ".join([
+                f"{row['Product']}: {row['Sold']:,} units sold, {row['Stock']:,} in stock, {row['Days_Left']:.0f} days left"
+                for _, row in restock_df.head(5).iterrows()
+            ])
+        else:
+            restock_text = "No urgent restock needs"
+            
+        # Format high return products
+        if not high_ret_df.empty:
+            high_return_text = ". ".join([
+                f"{row['Product']}: {row['Return_Rate']:.1f}% return rate, {row['Returned']:,} returned out of {row['Total_Sold']:,} sold"
+                for _, row in high_ret_df.head(3).iterrows()
+            ])
+        else:
+            high_return_text = "No products with high return rates"
+        
         # AI Context
         inventory_summary = (
-            f"Inventory Overview:\n"
-            f"- Total Active Products: {total_products}\n"
-            f"- Fast Movers: {fast_movers} ({fast_movers/total_products*100:.0f}%)\n"
-            f"- Slow Movers: {slow_movers} ({slow_movers/total_products*100:.0f}%)\n"
-            f"- Average Return Rate: {avg_return_rate:.1f}%\n\n"
-            f"Top restock priorities:\n{restock_df.head(5).to_string(index=False)}\n\n"
-            f"High return products (>10% return rate):\n{high_ret_df.head(5).to_string(index=False) if not high_ret_df.empty else 'None'}"
+            f"Total Active Products: {total_products:,}. "
+            f"Fast Movers: {fast_movers} products ({fast_movers/total_products*100:.0f}%). "
+            f"Slow Movers: {slow_movers} products ({slow_movers/total_products*100:.0f}%). "
+            f"Average Return Rate: {avg_return_rate:.1f}%. "
+            f"Top Restock Priorities: {restock_text}. "
+            f"High Return Products: {high_return_text}."
         )
         
         render_ai("inventory", "AI recommendations for inventory optimization and risk management.", inventory_summary)
@@ -1052,11 +1089,30 @@ elif page == "Forecast":
             'Forecast': future_predictions
         })
         
+        # Format historical data
+        recent_history = ". ".join([
+            f"{row['Month']}: £{row['Revenue']:,.0f}"
+            for _, row in hist_df[['Month', 'Revenue']].tail(6).iterrows()
+        ])
+        
+        # Format forecasts
+        forecast_text = ". ".join([
+            f"{row['Month']}: £{row['Forecast']:,.0f}"
+            for _, row in forecast_df.iterrows()
+        ])
+        
+        next_month_forecast = future_predictions[0]
+        avg_forecast = np.mean(future_predictions)
+        trend_direction = "upward" if model.coef_[0] > 0 else "downward"
+        
         # AI Context
         forecast_summary = (
-            f"Historical data (last 6 months):\n{hist_df[['Month', 'Revenue']].tail(6).to_string(index=False)}\n\n"
-            f"Forecasts for next {forecast_months} months:\n{forecast_df.to_string(index=False)}\n\n"
-            f"Model Accuracy: R² = {r2_score:.2%}, MAPE = {mape:.1f}%"
+            f"Recent Historical Revenue (Last 6 Months): {recent_history}. "
+            f"Revenue Forecasts for Next {forecast_months} Months: {forecast_text}. "
+            f"Next Month Forecast: £{next_month_forecast:,.0f}. "
+            f"Average Forecast: £{avg_forecast:,.0f}. "
+            f"Trend Direction: {trend_direction}. "
+            f"Model Accuracy: R² = {r2_score:.2%}, MAPE = {mape:.1f}%."
         )
         render_ai("forecast", "AI interpretation of revenue trends and forecast reliability.", forecast_summary)
         
