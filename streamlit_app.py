@@ -1139,7 +1139,7 @@ into decisions using real-time dashboards, forecasting, and AI-generated recomme
 
     with c4:
         st.markdown("<div style='text-align:center;display:flex;flex-direction:column;align-items:center;'>", unsafe_allow_html=True)
-        st.markdown("<div style='font-size:140px;line-height:200px;height:200px;'>👩</div>", unsafe_allow_html=True)
+        st.image("Marcia.jpeg", width=200)
         st.markdown("<p style='margin-top:10px;margin-bottom:0;'><strong>Marcia Rivera</strong><br/>Co-Founder</p>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
