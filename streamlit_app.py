@@ -412,45 +412,100 @@ def parse_context_for_insights(context, page_key):
                 
         elif page_key == "revenue":
             # Parse revenue data and generate insights
-            insights.append("- Revenue Analysis:")
+            product_insights = []
+            country_insights = []
             
             if "Top 5 Products by Revenue:" in context:
                 products_section = context.split("Top 5 Products by Revenue:")[1].split("Top 5 Countries")[0]
-                products = products_section.split(".")[:3]
+                products = products_section.split(".")[:5]  # Get up to 5 products
                 
                 revenue_values = []
+                product_data = []
+                
                 for prod in products:
-                    if "£" in prod:
+                    if "£" in prod and ":" in prod:
                         try:
+                            name = prod.split(":")[0].strip()
                             rev_str = prod.split("£")[1].split("revenue")[0].strip().replace(",", "")
-                            revenue_values.append(float(rev_str))
+                            units_str = prod.split(",")[1].split("units")[0].strip() if "units" in prod else "0"
+                            
+                            revenue = float(rev_str)
+                            units = int(units_str)
+                            
+                            revenue_values.append(revenue)
+                            product_data.append({"name": name, "revenue": revenue, "units": units})
                         except:
                             pass
                 
                 if len(revenue_values) >= 2:
-                    top_product_rev = revenue_values[0]
-                    second_product_rev = revenue_values[1]
-                    concentration = (top_product_rev / sum(revenue_values)) * 100 if sum(revenue_values) > 0 else 0
+                    total_top_revenue = sum(revenue_values)
+                    top_product = product_data[0]
+                    concentration = (top_product["revenue"] / total_top_revenue) * 100
                     
-                    if concentration > 40:
-                        insights.append(f"- High revenue concentration ({concentration:.0f}%) in top product creates dependency risk - diversify product portfolio")
+                    # Revenue concentration insight
+                    if concentration > 50:
+                        product_insights.append(f"⚠️ High revenue concentration: {top_product['name']} drives {concentration:.0f}% of top product revenue (£{top_product['revenue']:,.0f}) - diversify to reduce dependency risk")
+                    elif concentration > 35:
+                        product_insights.append(f"📊 Moderate concentration: {top_product['name']} accounts for {concentration:.0f}% of top revenue (£{top_product['revenue']:,.0f}) - monitor and develop backup SKUs")
                     else:
-                        insights.append(f"- Well-balanced revenue distribution across top products reduces business risk")
+                        product_insights.append(f"✓ Healthy revenue distribution: Top product {top_product['name']} represents {concentration:.0f}% (£{top_product['revenue']:,.0f}) - balanced portfolio reduces risk")
                     
-                    top_prod_name = products[0].split(":")[0].strip() if ":" in products[0] else "Top product"
-                    insights.append(f"- {top_prod_name} is your star performer - ensure consistent stock availability and consider product line extensions")
+                    # Star performer insight with specific actions
+                    avg_price = top_product["revenue"] / top_product["units"] if top_product["units"] > 0 else 0
+                    product_insights.append(f"🌟 Star Product: {top_product['name']} - {top_product['units']:,} units sold at £{avg_price:.2f} avg. Action: Ensure 30-day stock coverage, create bundle offers, and explore variations")
+                    
+                    # Second product comparison
+                    if len(product_data) >= 2:
+                        second_product = product_data[1]
+                        gap = ((top_product["revenue"] - second_product["revenue"]) / second_product["revenue"]) * 100
+                        if gap > 50:
+                            product_insights.append(f"💡 Opportunity: Bridge {gap:.0f}% revenue gap between #1 and #2 ({second_product['name']}) through targeted promotion of runner-up products")
                 
             if "Top 5 Countries by Revenue:" in context:
                 countries_section = context.split("Top 5 Countries by Revenue:")[1]
-                countries = countries_section.split(".")[:2]
+                countries = countries_section.split(".")[:5]
                 
-                if len(countries) >= 2:
-                    top_country = countries[0].split(":")[0].strip() if ":" in countries[0] else "Primary market"
-                    insights.append(f"- {top_country} is your primary market - tailor marketing campaigns and inventory to this region's preferences")
+                country_data = []
+                for country in countries:
+                    if "£" in country and ":" in country:
+                        try:
+                            name = country.split(":")[0].strip()
+                            # Skip "Unknown" countries
+                            if name.lower() == "unknown":
+                                continue
+                                
+                            rev_str = country.split("£")[1].split("revenue")[0].strip().replace(",", "")
+                            orders_str = country.split(",")[1].split("orders")[0].strip() if "orders" in country else "0"
+                            
+                            revenue = float(rev_str)
+                            orders = int(orders_str)
+                            
+                            country_data.append({"name": name, "revenue": revenue, "orders": orders})
+                        except:
+                            pass
+                
+                if len(country_data) >= 1:
+                    top_country = country_data[0]
+                    aov = top_country["revenue"] / top_country["orders"] if top_country["orders"] > 0 else 0
                     
-                if len(countries) >= 2:
-                    second_country = countries[1].split(":")[0].strip() if ":" in countries[1] else "Secondary market"
-                    insights.append(f"- Expanding presence in {second_country} represents growth opportunity - consider localized marketing strategies")
+                    country_insights.append(f"🌍 Primary Market: {top_country['name']} generates £{top_country['revenue']:,.0f} from {top_country['orders']:,} orders (£{aov:.0f} AOV) - optimize inventory allocation and localized campaigns here")
+                    
+                if len(country_data) >= 2:
+                    second_country = country_data[1]
+                    market_share = (second_country["revenue"] / (country_data[0]["revenue"] + second_country["revenue"])) * 100
+                    
+                    country_insights.append(f"🚀 Growth Market: {second_country['name']} ({market_share:.0f}% of top 2) with £{second_country['revenue']:,.0f} revenue - invest in market-specific SEO, local partnerships, and currency optimization")
+                
+                if len(country_data) >= 3:
+                    third_country = country_data[2]
+                    country_insights.append(f"🌱 Emerging: {third_country['name']} (£{third_country['revenue']:,.0f}) shows potential - test localized content and regional shipping options")
+            
+            # Combine insights
+            insights.extend(product_insights[:2])  # Top 2 product insights
+            insights.extend(country_insights[:2])  # Top 2 country insights
+            
+            if not insights:
+                insights.append("- Review top products and geographic distribution for revenue optimization opportunities")
                         
         elif page_key == "inventory":
             # Parse inventory data and generate insights
