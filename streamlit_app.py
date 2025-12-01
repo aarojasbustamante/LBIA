@@ -281,12 +281,15 @@ def get_data(q):
 
 
 def ai_insight(context, page_key="overview"):
+    """Generate AI insights. If models fail, parse context data directly."""
     try:
-        # Use free Hugging Face API - trying multiple models for reliability
+        # First, try to generate insights from actual data
+        parsed_insights = parse_context_for_insights(context, page_key)
+        
+        # Try AI models for enhanced insights
         models = [
             "mistralai/Mistral-7B-Instruct-v0.2",
             "HuggingFaceH4/zephyr-7b-beta",
-            "google/flan-t5-large"
         ]
         
         # Customize prompt based on page
@@ -302,7 +305,7 @@ def ai_insight(context, page_key="overview"):
         prompt = f"""{analysis_focus}
 
 Data:
-{context[:400]}
+{context[:600]}
 
 Insights:"""
         
@@ -314,7 +317,7 @@ Insights:"""
                     API_URL,
                     headers={"Content-Type": "application/json"},
                     json={"inputs": prompt, "parameters": {"max_new_tokens": 250, "temperature": 0.6}},
-                    timeout=45
+                    timeout=20  # Shorter timeout
                 )
                 
                 if response.status_code == 200:
@@ -328,7 +331,9 @@ Insights:"""
                             # Remove the prompt from the response if included
                             if "bullet points" in text.lower():
                                 text = text.split("bullet points")[-1]
-                            return text.strip() if text.strip() else "- Revenue trends show consistent growth patterns\n- Consider inventory optimization opportunities\n- Customer segments display varying profitability"
+                            cleaned = text.strip()
+                            if cleaned and "- " in cleaned:
+                                return cleaned
                     elif isinstance(result, dict) and "generated_text" in result:
                         return result["generated_text"].strip()
                 
@@ -340,28 +345,87 @@ Insights:"""
                 logging.warning(f"Model {model} failed: {model_error}")
                 continue
         
-        # Page-specific fallback insights if all models fail
-        fallback_insights = {
-            "overview": "- Revenue and order metrics indicate overall business health\n- Customer base and product range show market presence\n- Return rates reflect product quality and customer satisfaction\n- Average order value suggests pricing effectiveness",
-            "revenue": "- Top products drive significant portion of total revenue\n- Geographic distribution shows key market concentrations\n- Product performance varies across different segments\n- Consider focusing on high-performing SKUs for growth",
-            "inventory": "- Stock levels reflect current inventory management approach\n- Product turnover rates indicate demand patterns\n- Some items may require reorder point adjustments\n- Monitor slow-moving inventory for optimization opportunities",
-            "forecast": "- Revenue trends show historical patterns\n- Forecast predictions based on linear regression analysis\n- Confidence intervals indicate prediction reliability\n- Seasonal variations may impact future performance"
-        }
-        
-        return fallback_insights.get(page_key, fallback_insights["overview"])
+        # If all models fail, return parsed insights from data
+        return parsed_insights
         
     except Exception as e:
         logging.error(f"AI error: {e}")
+        return parse_context_for_insights(context, page_key)
+
+
+def parse_context_for_insights(context, page_key):
+    """Parse the context data and generate insights directly."""
+    try:
+        insights = []
         
-        # Page-specific error fallbacks
-        error_fallbacks = {
-            "overview": "- Business metrics available in dashboard above\n- Monitor key performance indicators regularly",
-            "revenue": "- Review top products and country distribution in charts\n- Analyze revenue patterns for optimization",
-            "inventory": "- Check inventory levels and turnover rates\n- Review stock management metrics above",
-            "forecast": "- Examine forecast visualization for trends\n- Review confidence intervals for predictions"
-        }
+        if page_key == "overview":
+            # Parse overview data
+            if "Total Revenue:" in context:
+                revenue = context.split("Total Revenue:")[1].split(".")[0].strip()
+                insights.append(f"- Total Revenue: {revenue}")
+            if "Total Orders:" in context:
+                orders = context.split("Total Orders:")[1].split(".")[0].strip()
+                insights.append(f"- Total Orders: {orders}")
+            if "Return Rate:" in context:
+                return_rate = context.split("Return Rate:")[1].split(".")[0].strip()
+                insights.append(f"- Return Rate: {return_rate}")
+            if "Average Order Value:" in context:
+                aov = context.split("Average Order Value:")[1].split(".")[0].strip()
+                insights.append(f"- Average Order Value: {aov}")
+                
+        elif page_key == "revenue":
+            # Parse revenue data
+            if "Top 5 Products by Revenue:" in context:
+                products_section = context.split("Top 5 Products by Revenue:")[1].split("Top 5 Countries")[0]
+                products = products_section.split(".")[:3]  # Get first 3 products
+                for prod in products:
+                    if prod.strip() and ":" in prod:
+                        insights.append(f"- {prod.strip()}")
+            if "Top 5 Countries by Revenue:" in context:
+                countries_section = context.split("Top 5 Countries by Revenue:")[1]
+                countries = countries_section.split(".")[:2]  # Get first 2 countries
+                for country in countries:
+                    if country.strip() and ":" in country:
+                        insights.append(f"- {country.strip()}")
+                        
+        elif page_key == "inventory":
+            # Parse inventory data
+            if "Total Active Products:" in context:
+                products = context.split("Total Active Products:")[1].split(".")[0].strip()
+                insights.append(f"- Total Active Products: {products}")
+            if "Fast Movers:" in context:
+                fast = context.split("Fast Movers:")[1].split(".")[0].strip()
+                insights.append(f"- Fast Movers: {fast}")
+            if "Slow Movers:" in context:
+                slow = context.split("Slow Movers:")[1].split(".")[0].strip()
+                insights.append(f"- Slow Movers: {slow}")
+            if "Top Restock Priorities:" in context:
+                restock = context.split("Top Restock Priorities:")[1].split(".")[0].strip()
+                insights.append(f"- Priority Restock: {restock}")
+                
+        elif page_key == "forecast":
+            # Parse forecast data
+            if "Next Month Forecast:" in context:
+                forecast = context.split("Next Month Forecast:")[1].split(".")[0].strip()
+                insights.append(f"- Next Month Forecast: {forecast}")
+            if "Trend Direction:" in context:
+                trend = context.split("Trend Direction:")[1].split(".")[0].strip()
+                insights.append(f"- Trend: {trend}")
+            if "Model Accuracy:" in context:
+                accuracy = context.split("Model Accuracy:")[1].split(".")[0].strip()
+                insights.append(f"- Model Accuracy: {accuracy}")
+            if "Average Forecast:" in context:
+                avg = context.split("Average Forecast:")[1].split(".")[0].strip()
+                insights.append(f"- Average Forecast: {avg}")
         
-        return error_fallbacks.get(page_key, error_fallbacks["overview"])
+        if insights:
+            return "\n".join(insights)
+        else:
+            return "- Analysis complete. Review the data visualizations above for detailed insights."
+            
+    except Exception as e:
+        logging.error(f"Parse error: {e}")
+        return "- Data analysis available. Please review the metrics and charts above."
 
 
 def render_ai(page_key, description, context):
