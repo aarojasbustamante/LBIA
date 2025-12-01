@@ -238,16 +238,15 @@ DB_CONFIG = {
     'password': st.secrets["database"]["password"]
 }
 
-# OpenAI
-OPENAI_API_KEY = st.secrets["openai"]["api_key"]
-client = OpenAI(api_key=OPENAI_API_KEY)
+# Free AI using Hugging Face
+import requests
 
 AI_HEADER_HTML = """
 <div class="ai-header">
     <div class="ai-icon">🤖</div>
     <div>
         <p style='margin:0;font-size:13px;font-weight:600;'>AI Analyst</p>
-        <p style='margin:0;font-size:11px;color:#64748b;'>Powered by GPT</p>
+        <p style='margin:0;font-size:11px;color:#64748b;'>Powered by AI</p>
     </div>
 </div>
 """
@@ -283,25 +282,37 @@ def get_data(q):
 
 def ai_insight(context):
     try:
-        out = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "Provide plain text insights only. No markdown, no **, no #. "
-                        "Use at most 5 bullet points starting with '- '. "
-                        "Do not nest sub-bullets."
-                    )
-                },
-                {"role": "user", "content": f"Analyze this dashboard area:\n{context}"}
-            ],
-            max_tokens=350
+        # Use free Hugging Face API
+        API_URL = "https://api-inference.huggingface.co/models/microsoft/Phi-3-mini-4k-instruct"
+        
+        prompt = f"""Analyze this business data and provide 3-5 key insights in plain text.
+No markdown, no **, no #. Use bullet points starting with '- '.
+
+Data: {context[:500]}
+
+Insights:"""
+        
+        response = requests.post(
+            API_URL,
+            headers={"Content-Type": "application/json"},
+            json={"inputs": prompt, "parameters": {"max_new_tokens": 200, "temperature": 0.7}},
+            timeout=30
         )
-        return out.choices[0].message.content
+        
+        if response.status_code == 200:
+            result = response.json()
+            if isinstance(result, list) and len(result) > 0:
+                text = result[0].get("generated_text", "")
+                # Extract only the insights part after "Insights:"
+                if "Insights:" in text:
+                    insights = text.split("Insights:")[-1].strip()
+                    return insights if insights else "- Analysis complete. Check your data trends."
+                return text
+        
+        return "- AI insights temporarily unavailable. Please try again."
     except Exception as e:
         logging.error(f"AI error: {e}")
-        return f"AI temporarily unavailable. Error: {str(e)}"
+        return f"- Unable to generate insights at this time."
 
 
 def render_ai(page_key, description, context):
