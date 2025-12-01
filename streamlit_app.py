@@ -182,12 +182,20 @@ st.markdown("""
     
     /* Professional section divider */
     .section-divider {
-        border: none;
-        height: 1px;
-        background: linear-gradient(to right, transparent, #475569, transparent);
-        margin: 48px 0;
-        opacity: 0.3;
+        border: none !important;
+        height: 1px !important;
+        background: linear-gradient(to right, transparent, #64748b, transparent) !important;
+        margin: 32px 0 !important;
+        opacity: 0.4 !important;
     }
+    
+    /* Hide default Streamlit hr styling */
+    hr {
+        border: none !important;
+        height: 1px !important;
+        background: linear-gradient(to right, transparent, #64748b, transparent) !important;
+        margin: 32px 0 !important;
+        opacity: 0.4 !important;
     }
 </style>
 """, unsafe_allow_html=True)
