@@ -34,6 +34,14 @@ st.markdown("""
     #MainMenu, footer, header {visibility:hidden;}
     .stApp {background:#1a1a1a;}
     * {color: #ffffff !important;}
+    
+    /* Remove white containers/blocks between sections */
+    [data-testid="stHorizontalBlock"] {
+        background: transparent !important;
+    }
+    .element-container {
+        background: transparent !important;
+    }
 
     /* Hero */
     .hero {
