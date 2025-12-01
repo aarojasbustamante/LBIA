@@ -1191,7 +1191,7 @@ elif page == "Inventory":
         # Format top restock priorities
         if not restock_df.empty:
             restock_text = ". ".join([
-                f"{row['Product']}: {row['Sold']:,} units sold, {row['Stock']:,} in stock, {row['Days_Left']:.0f} days left"
+                f"{row['Product']}: {row['Units Sold']:,} units sold, {row['Avg Daily Sales']:.1f} daily sales rate"
                 for _, row in restock_df.head(5).iterrows()
             ])
         else:
@@ -1200,7 +1200,7 @@ elif page == "Inventory":
         # Format high return products
         if not high_ret_df.empty:
             high_return_text = ". ".join([
-                f"{row['Product']}: {row['Return_Rate']:.1f}% return rate, {row['Returned']:,} returned out of {row['Total_Sold']:,} sold"
+                f"{row['Product']}: {row['Return Rate']} return rate, {row['Units Returned']:,} returned out of {row['Units Sold']:,} sold"
                 for _, row in high_ret_df.head(3).iterrows()
             ])
         else:
