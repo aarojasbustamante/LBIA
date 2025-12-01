@@ -482,8 +482,6 @@ if page == "Overview":
                         st.error(f"Error processing file: {str(e)}")
                         logging.error(f"Upload error: {e}")
 
-    st.markdown("<div style='height:1px;background:linear-gradient(to right,transparent,rgba(100,116,139,0.3),transparent);margin:40px 0;'></div>", unsafe_allow_html=True)
-
     # Metrics
     rev = safe_value(get_data("SELECT SUM(line_total) FROM transaction_items WHERE is_return=0"))
     orders = int(safe_value(get_data("SELECT COUNT(*) FROM transactions")))
