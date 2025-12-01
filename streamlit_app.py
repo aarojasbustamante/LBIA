@@ -195,6 +195,14 @@ st.markdown("""
         border-radius: 0 !important;
         box-shadow: none !important;
     }
+    
+    /* Make all team photos uniform size */
+    [data-testid="stImage"] img {
+        width: 200px !important;
+        height: 200px !important;
+        object-fit: cover !important;
+        border-radius: 8px !important;
+    }
 
     /* We are not using text inputs so hide the big input pill if any */
     div[data-baseweb="input"] {
