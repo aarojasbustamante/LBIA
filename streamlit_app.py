@@ -280,7 +280,7 @@ def get_data(q):
             conn.close()
 
 
-def ai_insight(context):
+def ai_insight(context, page_key="overview"):
     try:
         # Use free Hugging Face API - trying multiple models for reliability
         models = [
@@ -289,11 +289,22 @@ def ai_insight(context):
             "google/flan-t5-large"
         ]
         
-        prompt = f"""Business Data Analysis Request:
+        # Customize prompt based on page
+        page_prompts = {
+            "overview": "Analyze this overall business performance data and provide 3-5 key insights about revenue, orders, customers, and returns as bullet points starting with '- '.",
+            "revenue": "Analyze this revenue data focusing on product performance and geographic distribution. Provide 3-5 specific revenue insights as bullet points starting with '- '.",
+            "inventory": "Analyze this inventory data focusing on stock levels, turnover, and risk management. Provide 3-5 inventory optimization insights as bullet points starting with '- '.",
+            "forecast": "Analyze this revenue forecast data focusing on trends, predictions, and forecast reliability. Provide 3-5 forecasting insights as bullet points starting with '- '."
+        }
+        
+        analysis_focus = page_prompts.get(page_key, page_prompts["overview"])
+        
+        prompt = f"""{analysis_focus}
 
+Data:
 {context[:400]}
 
-Please provide 3-5 key business insights as bullet points starting with '- '."""
+Insights:"""
         
         for model in models:
             try:
@@ -329,12 +340,28 @@ Please provide 3-5 key business insights as bullet points starting with '- '."""
                 logging.warning(f"Model {model} failed: {model_error}")
                 continue
         
-        # Fallback insights if all models fail
-        return "- Revenue analysis shows distribution across customer segments\n- Inventory levels indicate product movement patterns\n- Historical data suggests seasonal trends\n- Consider reviewing high-value transactions for insights"
+        # Page-specific fallback insights if all models fail
+        fallback_insights = {
+            "overview": "- Revenue and order metrics indicate overall business health\n- Customer base and product range show market presence\n- Return rates reflect product quality and customer satisfaction\n- Average order value suggests pricing effectiveness",
+            "revenue": "- Top products drive significant portion of total revenue\n- Geographic distribution shows key market concentrations\n- Product performance varies across different segments\n- Consider focusing on high-performing SKUs for growth",
+            "inventory": "- Stock levels reflect current inventory management approach\n- Product turnover rates indicate demand patterns\n- Some items may require reorder point adjustments\n- Monitor slow-moving inventory for optimization opportunities",
+            "forecast": "- Revenue trends show historical patterns\n- Forecast predictions based on linear regression analysis\n- Confidence intervals indicate prediction reliability\n- Seasonal variations may impact future performance"
+        }
+        
+        return fallback_insights.get(page_key, fallback_insights["overview"])
         
     except Exception as e:
         logging.error(f"AI error: {e}")
-        return "- Revenue patterns visible in current data\n- Product categories show distinct performance\n- Customer segments display purchasing behaviors"
+        
+        # Page-specific error fallbacks
+        error_fallbacks = {
+            "overview": "- Business metrics available in dashboard above\n- Monitor key performance indicators regularly",
+            "revenue": "- Review top products and country distribution in charts\n- Analyze revenue patterns for optimization",
+            "inventory": "- Check inventory levels and turnover rates\n- Review stock management metrics above",
+            "forecast": "- Examine forecast visualization for trends\n- Review confidence intervals for predictions"
+        }
+        
+        return error_fallbacks.get(page_key, error_fallbacks["overview"])
 
 
 def render_ai(page_key, description, context):
@@ -351,7 +378,7 @@ def render_ai(page_key, description, context):
 
     with button_col:
         if st.button("Run Analysis", key=f"btn_{page_key}", use_container_width=True):
-            st.session_state[f"resp_{page_key}"] = ai_insight(context)
+            st.session_state[f"resp_{page_key}"] = ai_insight(context, page_key)
 
     resp_key = f"resp_{page_key}"
     if resp_key in st.session_state:
