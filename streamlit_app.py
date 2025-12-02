@@ -1529,12 +1529,12 @@ bundle together, or avoid discounting too heavily.
             st.info("No data available")
     
     # CUSTOMER CHURN PREDICTION
-    st.markdown("### 🎯 Customer Retention Intelligence")
+    st.markdown("<h3 style='color: #ffffff;'>🎯 Customer Retention Intelligence</h3>", unsafe_allow_html=True)
     st.markdown("""
     <div style='background:#fef3c7;border-left:4px solid #f59e0b;padding:16px;
                 border-radius:8px;margin-bottom:16px;'>
-        <p style='margin:0;color:#92400e;font-size:14px;'>
-            <strong>AI-Powered Churn Prediction:</strong> Identifying high-value customers 
+        <p style='margin:0;color:#92400e !important;font-size:14px;'>
+            <strong style='color:#92400e !important;'>AI-Powered Churn Prediction:</strong> Identifying high-value customers 
             at risk of churning based on purchase patterns and recency.
         </p>
     </div>
@@ -1608,9 +1608,9 @@ bundle together, or avoid discounting too heavily.
                         st.markdown("""
                         <div style='background:#d1fae5;border-left:4px solid #10b981;
                                     padding:16px;border-radius:8px;margin-top:16px;'>
-                            <h4 style='margin:0 0 12px 0;color:#065f46;'>💡 AI-Recommended Retention Strategies</h4>
+                            <h4 style='margin:0 0 12px 0;color:#065f46 !important;'>💡 AI-Recommended Retention Strategies</h4>
                         """, unsafe_allow_html=True)
-                        st.markdown(f"<p style='margin:0;color:#065f46;white-space:pre-wrap;'>{strategies}</p></div>", unsafe_allow_html=True)
+                        st.markdown(f"<p style='margin:0;color:#065f46 !important;white-space:pre-wrap;'>{strategies}</p></div>", unsafe_allow_html=True)
                         
                     except Exception as e:
                         st.error(f"Error generating strategies: {str(e)}")
