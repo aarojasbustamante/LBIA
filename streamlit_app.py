@@ -19,7 +19,7 @@ st.set_page_config(
     page_title="LBIA Dashboard",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 # Remove default top padding
@@ -972,91 +972,73 @@ if "chat_history" not in st.session_state:
 if "chat_open" not in st.session_state:
     st.session_state.chat_open = False
 
-# FLOATING CHAT BUTTON (RIGHT SIDE)
-chat_col1, chat_col2 = st.columns([20, 1])
-
-with chat_col2:
-    if st.button("🤖\n💬", key="chat_toggle", help="Open AI Chat Assistant"):
-        st.session_state.chat_open = not st.session_state.chat_open
-
-# RIGHT-SIDE CHAT PANEL
-if st.session_state.chat_open:
-    # Dark themed chat panel
+# AI CHAT IN SIDEBAR (RIGHT-ALIGNED STYLING)
+with st.sidebar:
     st.markdown("""
-    <div style='position:fixed;right:0;top:0;width:450px;height:100vh;
-                background:#1e293b;box-shadow:-4px 0 20px rgba(0,0,0,0.5);
-                z-index:9999;padding:0;'>
-        <div style='padding:24px;border-bottom:1px solid #334155;'>
-            <h2 style='margin:0;color:#ffffff;font-size:20px;'>🤖 AI Assistant</h2>
-            <p style='color:#94a3b8;font-size:13px;margin:8px 0 0 0;'>
-                Ask questions about your business data
-            </p>
-        </div>
-    </div>
+    <style>
+        [data-testid="stSidebar"] {
+            background: #1e293b !important;
+        }
+        [data-testid="stSidebar"] * {
+            color: #ffffff !important;
+        }
+    </style>
     """, unsafe_allow_html=True)
     
-    # Use container to position content correctly
-    with st.container():
-        col1, col2 = st.columns([3, 1])
-        with col2:
-            if st.button("✕ Close", key="close_chat", use_container_width=True):
-                st.session_state.chat_open = False
-                st.rerun()
+    st.markdown("### 🤖 AI Chat Assistant")
+    st.markdown("Ask questions about your business data")
     
-    st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
+    # Chat history display
+    st.markdown("---")
     
-    # Chat history container with scrolling
-    st.markdown("<div style='max-height:calc(100vh - 250px);overflow-y:auto;padding:0 12px;'>", unsafe_allow_html=True)
+    # Display chat messages
+    chat_container = st.container()
+    with chat_container:
+        for message in st.session_state.chat_history:
+            if message["role"] == "user":
+                st.markdown(f"""
+                <div style='background:#3b82f6;padding:12px;border-radius:12px;margin-bottom:12px;'>
+                    <strong style='color:#ffffff;font-size:12px;'>You</strong>
+                    <p style='margin:4px 0 0 0;color:#ffffff;font-size:14px;'>{message["content"]}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div style='background:#334155;padding:12px;border-radius:12px;margin-bottom:12px;'>
+                    <strong style='color:#a78bfa;font-size:12px;'>🤖 AI</strong>
+                    <p style='margin:4px 0 0 0;color:#e2e8f0;font-size:14px;'>{message["content"]}</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Show data table if exists
+                if "data_table" in message and message["data_table"] is not None:
+                    st.dataframe(message["data_table"], use_container_width=True, height=200)
     
-    # Display chat history
-    for i, message in enumerate(st.session_state.chat_history):
-        if message["role"] == "user":
-            st.markdown(f"""
-            <div style='background:#3b82f6;padding:12px 16px;border-radius:12px;margin-bottom:12px;'>
-                <strong style='color:#ffffff;font-size:12px;'>You</strong>
-                <p style='margin:6px 0 0 0;color:#ffffff;font-size:14px;line-height:1.5;'>{message["content"]}</p>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown(f"""
-            <div style='background:#334155;padding:12px 16px;border-radius:12px;margin-bottom:12px;'>
-                <strong style='color:#a78bfa;font-size:12px;'>🤖 AI Assistant</strong>
-                <p style='margin:6px 0 0 0;color:#e2e8f0;font-size:14px;line-height:1.5;'>{message["content"]}</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Show data table if it's a query result
-            if "data_table" in message and message["data_table"] is not None:
-                st.dataframe(message["data_table"], use_container_width=True, height=200)
+    st.markdown("---")
     
-    st.markdown("</div>", unsafe_allow_html=True)
+    # Input area
+    st.markdown("**💬 Ask a question:**")
+    user_message = st.text_area(
+        "Message",
+        placeholder="e.g., 'Show me top 5 products by revenue'",
+        key="chat_input_area",
+        height=100,
+        label_visibility="collapsed"
+    )
     
-    # Fixed input area at bottom
-    st.markdown("<div style='margin-top:20px;padding-top:16px;border-top:1px solid #334155;'>", unsafe_allow_html=True)
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        send_clicked = st.button("📤 Send", use_container_width=True, type="primary")
+    with col2:
+        if st.button("🗑️ Clear", use_container_width=True):
+            st.session_state.chat_history = []
+            st.rerun()
     
-    # Chat input with send button
-    input_col1, input_col2 = st.columns([4, 1])
-    
-    with input_col1:
-        user_message = st.text_input(
-            "Message",
-            placeholder="Ask a question...",
-            key="chat_input_msg",
-            label_visibility="collapsed"
-        )
-    
-    with input_col2:
-        send_button = st.button("Send ➤", key="send_msg", use_container_width=True, type="primary")
-    
-    st.markdown("</div>", unsafe_allow_html=True)
-    
-    # Process message when user presses Enter or clicks Send
-    if user_message and (send_button or user_message):
-        # Add user message to history
+    # Process message
+    if send_clicked and user_message:
         st.session_state.chat_history.append({"role": "user", "content": user_message})
         
-        # Process with AI
-        with st.spinner("🤔 AI is thinking..."):
+        with st.spinner("🤔 Thinking..."):
             try:
                 if "openai" in st.secrets and "api_key" in st.secrets["openai"]:
                     client = OpenAI(api_key=st.secrets["openai"]["api_key"])
@@ -1089,7 +1071,7 @@ Database Schema:
                             summary_response = client.chat.completions.create(
                                 model="gpt-3.5-turbo",
                                 messages=[
-                                    {"role": "system", "content": "You are a business analyst. Provide a concise 2-3 sentence answer with key insights."},
+                                    {"role": "system", "content": "You are a business analyst. Provide a concise 2-3 sentence answer."},
                                     {"role": "user", "content": f"Question: {user_message}\n\nData:\n{result_df.head(10).to_string()}"}
                                 ],
                                 max_tokens=150,
@@ -1097,27 +1079,21 @@ Database Schema:
                             )
                             ai_response = summary_response.choices[0].message.content.strip()
                             
-                            # Add AI response to history with data
                             st.session_state.chat_history.append({
                                 "role": "assistant", 
                                 "content": ai_response,
                                 "data_table": result_df.head(10)
                             })
                         else:
-                            st.session_state.chat_history.append({"role": "assistant", "content": "No data found for your question."})
+                            st.session_state.chat_history.append({"role": "assistant", "content": "No data found."})
                     except Exception as e:
-                        st.session_state.chat_history.append({"role": "assistant", "content": f"Error executing query: {str(e)}"})
+                        st.session_state.chat_history.append({"role": "assistant", "content": f"Error: {str(e)}"})
                 else:
                     st.session_state.chat_history.append({"role": "assistant", "content": "⚠️ OpenAI API key not configured."})
             except Exception as e:
                 st.session_state.chat_history.append({"role": "assistant", "content": f"Error: {str(e)}"})
         
         st.rerun()
-    
-    if len(st.session_state.chat_history) > 0:
-        if st.button("🗑️ Clear Chat History", use_container_width=True):
-            st.session_state.chat_history = []
-            st.rerun()
 
 # Navigation bar
 nav_cols = st.columns([2.5, 1, 1, 1, 1, 1, 1.5, 1])
