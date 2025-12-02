@@ -19,7 +19,7 @@ st.set_page_config(
     page_title="LBIA Dashboard",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 # Remove default top padding
