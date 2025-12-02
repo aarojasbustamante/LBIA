@@ -691,53 +691,32 @@ def render_ai(page_key, description, context):
 
     resp_key = f"resp_{page_key}"
     if resp_key in st.session_state:
-        # Format the insights with enhanced visual structure
+        # Get insights text
         insights_text = st.session_state[resp_key]
         
-        # ALWAYS render as visual cards - no plain text fallback
-        # Split into individual insights
-        all_lines = insights_text.split('\n')
-        insights_list = []
+        # Split into individual insights (newline separated)
+        all_lines = [line.strip() for line in insights_text.split('\n') if line.strip()]
         
-        for line in all_lines:
-            line = line.strip()
-            if not line:  # Skip empty lines
-                continue
-                
-            # Include ALL non-empty lines
-            # They all start with emojis from parse_context_for_insights
-            insights_list.append(line)
-        
-        if insights_list and len(insights_list) > 0:
-            # Create visual cards for each insight
-            formatted_html = "<div style='margin-top:16px;'>"
+        if all_lines:
+            # Build HTML for ALL insights as cards
+            cards_html = ""
             
-            for line in insights_list:
-                # Each line is: "💰 Strong Performance: ..."
-                # Extract emoji and text
-                emoji = "📊"  # Default
-                text = line
+            for line in all_lines:
+                # Simple approach: split on first space after emoji
+                # Format: "� Strong Performance: ..."
+                parts = line.split(' ', 1)
                 
-                if len(line) > 0:
-                    # Try to find emoji at start
-                    import re
-                    emoji_pattern = re.compile(r'^([\U0001F300-\U0001F9FF\u2600-\u26FF\u2700-\u27BF\U0001F600-\U0001F64F\U0001F680-\U0001F6FF✓✅⚠⚡]+)\s*')
-                    match = emoji_pattern.match(line)
-                    
-                    if match:
-                        emoji = match.group(1)
-                        text = line[len(match.group(0)):].strip()
-                    else:
-                        # Fallback: check first character
-                        try:
-                            if ord(line[0]) > 127:
-                                emoji = line[0]
-                                text = line[1:].strip()
-                        except:
-                            pass
+                if len(parts) == 2:
+                    emoji = parts[0]  # First part (emoji)
+                    text = parts[1]   # Rest (text)
+                elif len(parts) == 1:
+                    emoji = "📊"
+                    text = parts[0]
+                else:
+                    continue
                 
-                # Create visual card for each insight
-                formatted_html += f"""
+                # Build card HTML
+                cards_html += f"""
                 <div style='
                     background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
                     border-left: 4px solid #3b82f6;
@@ -749,26 +728,15 @@ def render_ai(page_key, description, context):
                     gap: 12px;
                     align-items: flex-start;
                 '>
-                    <div style='
-                        font-size: 24px;
-                        line-height: 1;
-                        flex-shrink: 0;
-                        margin-top: 2px;
-                    '>{emoji}</div>
-                    <div style='
-                        color: #000000 !important;
-                        font-size: 14px;
-                        line-height: 1.6;
-                        flex: 1;
-                    '>{text}</div>
+                    <div style='font-size: 24px; line-height: 1; flex-shrink: 0; margin-top: 2px;'>{emoji}</div>
+                    <div style='color: #000000 !important; font-size: 14px; line-height: 1.6; flex: 1;'>{text}</div>
                 </div>
                 """
             
-            formatted_html += "</div>"
-            st.markdown(formatted_html, unsafe_allow_html=True)
+            # Render all cards at once
+            st.markdown(f"<div style='margin-top:16px;'>{cards_html}</div>", unsafe_allow_html=True)
         else:
-            # No insights found
-            st.markdown("<div style='color: #64748b; font-size: 14px; margin-top: 12px;'>No insights available. Click 'Run Analysis' to generate.</div>", unsafe_allow_html=True)
+            st.markdown("<div style='color: #64748b; font-size: 14px; margin-top: 12px;'>No insights available.</div>", unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
