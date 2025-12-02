@@ -700,12 +700,22 @@ def render_ai(page_key, description, context):
         
         for line in all_lines:
             line = line.strip()
-            # Include lines that start with '-' OR start with an emoji (non-ASCII character)
+            if not line:  # Skip empty lines
+                continue
+                
+            # Include lines that start with '-' OR start with an emoji (non-ASCII character > 127)
             if line.startswith('-'):
                 insights_list.append(line)
-            elif line and len(line) > 0 and ord(line[0]) > 127:
-                # Line starts with emoji (likely an insight without dash)
-                insights_list.append('- ' + line)  # Add dash for consistency
+            elif len(line) > 0:
+                # Check if first character is emoji (Unicode > 127)
+                try:
+                    first_char_code = ord(line[0])
+                    if first_char_code > 127:  # Non-ASCII, likely emoji
+                        # Add dash for consistency
+                        insights_list.append('- ' + line)
+                    # Otherwise skip non-emoji, non-dash lines
+                except:
+                    pass
         
         if insights_list and len(insights_list) > 0:
             # Create visual cards for each insight wrapped in container with black text
