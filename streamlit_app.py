@@ -531,7 +531,8 @@ def render_chat_widget(section_name):
     if not st.session_state.chat_open:
         return
     
-    st.markdown("<div style='height:40px;'></div>", unsafe_allow_html=True)
+    # Section title
+    st.markdown("<h2 style='color: #ffffff; font-size: 24px; margin-top: 40px; margin-bottom: 16px;'>AI Chat</h2>", unsafe_allow_html=True)
     
     # Chat panel header
     st.markdown("""
@@ -550,9 +551,9 @@ def render_chat_widget(section_name):
     st.markdown("""
     <div style='
         background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        padding: 20px;
+        padding: 12px 16px;
         border-radius: 0 0 8px 8px;
-        min-height: 250px;
+        min-height: 150px;
     '>
     """, unsafe_allow_html=True)
     
@@ -580,13 +581,13 @@ def render_chat_widget(section_name):
     st.markdown("</div>", unsafe_allow_html=True)
     
     # Input area
-    st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
     
     user_input = st.text_area(
         "Your question:",
         placeholder="e.g., 'Show me top 5 products by revenue' or 'Which customers spent the most?'",
         key=f"chat_input_{section_name}",
-        height=100,
+        height=80,
         label_visibility="collapsed"
     )
     
