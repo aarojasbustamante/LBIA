@@ -537,12 +537,12 @@ def render_chat_widget(section_name):
     st.markdown("""
     <div style='
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 16px;
-        border-radius: 12px 12px 0 0;
+        padding: 10px 16px;
+        border-radius: 8px 8px 0 0;
         margin-bottom: 0;
     '>
-        <h3 style='color: white; margin: 0; font-size: 18px;'>🤖 AI Data Assistant</h3>
-        <p style='color: rgba(255,255,255,0.8); margin: 4px 0 0 0; font-size: 13px;'>Ask questions about your {section} data</p>
+        <h3 style='color: white; margin: 0; font-size: 15px;'>🤖 AI Data Assistant</h3>
+        <p style='color: rgba(255,255,255,0.8); margin: 2px 0 0 0; font-size: 11px;'>Ask questions about your {section} data</p>
     </div>
     """.replace("{section}", section_name), unsafe_allow_html=True)
     
@@ -551,8 +551,8 @@ def render_chat_widget(section_name):
     <div style='
         background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
         padding: 20px;
-        border-radius: 0 0 12px 12px;
-        min-height: 300px;
+        border-radius: 0 0 8px 8px;
+        min-height: 250px;
     '>
     """, unsafe_allow_html=True)
     
