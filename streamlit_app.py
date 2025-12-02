@@ -19,7 +19,7 @@ st.set_page_config(
     page_title="LBIA Dashboard",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # Remove default top padding
@@ -33,10 +33,46 @@ st.markdown("""
 
     /* Enable sidebar for AI chat */
     [data-testid="stSidebar"] {
-        background-color: #1a1a1a !important;
+        display: none !important;
     }
-    [data-testid="stSidebar"] > div:first-child {
-        background-color: #1a1a1a !important;
+    
+    /* Right-side chat panel */
+    .chat-panel {
+        position: fixed;
+        right: 0;
+        top: 0;
+        height: 100vh;
+        width: 400px;
+        background: #ffffff;
+        box-shadow: -4px 0 12px rgba(0,0,0,0.15);
+        z-index: 1000;
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+        overflow-y: auto;
+        padding: 20px;
+    }
+    .chat-panel.open {
+        transform: translateX(0);
+    }
+    .chat-toggle-btn {
+        position: fixed;
+        right: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 40px 16px;
+        border-radius: 12px 0 0 12px;
+        cursor: pointer;
+        z-index: 999;
+        font-weight: 600;
+        font-size: 14px;
+        box-shadow: -2px 2px 10px rgba(0,0,0,0.2);
+        writing-mode: vertical-rl;
+        text-orientation: mixed;
+    }
+    .chat-toggle-btn:hover {
+        box-shadow: -4px 4px 15px rgba(0,0,0,0.3);
     }
     
     #MainMenu, footer, header {visibility:hidden;}
@@ -930,145 +966,135 @@ def render_ai(page_key, description, context):
 if "page" not in st.session_state:
     st.session_state.page = "Overview"
 
-# Initialize chat history
+# Initialize chat state
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 if "chat_open" not in st.session_state:
     st.session_state.chat_open = False
 
-# AI CHAT SIDEBAR (Floating on the right)
-st.markdown("""
-<style>
-    .chat-toggle {
-        position: fixed;
-        right: 20px;
-        top: 50%;
-        transform: translateY(-50%);
-        z-index: 999;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 12px 20px;
-        border-radius: 30px 0 0 30px;
-        cursor: pointer;
-        box-shadow: -2px 2px 10px rgba(0,0,0,0.2);
-        font-weight: 600;
-        writing-mode: vertical-rl;
-        text-orientation: mixed;
-    }
-    .chat-toggle:hover {
-        box-shadow: -2px 2px 15px rgba(0,0,0,0.3);
-    }
-</style>
-""", unsafe_allow_html=True)
+# FLOATING CHAT BUTTON (RIGHT SIDE)
+chat_col1, chat_col2 = st.columns([20, 1])
 
-# Chat toggle button in sidebar
-with st.sidebar:
-    st.markdown("---")
-    st.markdown("### 🤖 AI Assistant")
-    
-    if st.button("💬 Open AI Chat", use_container_width=True, type="primary"):
+with chat_col2:
+    if st.button("🤖\n💬", key="chat_toggle", help="Open AI Chat Assistant"):
         st.session_state.chat_open = not st.session_state.chat_open
-    
-    if st.session_state.chat_open:
-        st.markdown("""
-        <div style='background:#f8fafc;padding:12px;border-radius:8px;margin-bottom:12px;'>
-            <p style='margin:0;font-size:13px;color:#64748b;'>
-                Ask questions about your business data and get instant insights!
-            </p>
+
+# RIGHT-SIDE CHAT PANEL
+if st.session_state.chat_open:
+    st.markdown("""
+    <div style='position:fixed;right:0;top:0;width:420px;height:100vh;
+                background:#ffffff;box-shadow:-4px 0 20px rgba(0,0,0,0.15);
+                z-index:9999;overflow-y:auto;padding:24px;'>
+        <div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;'>
+            <h2 style='margin:0;color:#1e40af;font-size:20px;'>🤖 AI Assistant</h2>
         </div>
-        """, unsafe_allow_html=True)
-        
-        # Display chat history
-        chat_container = st.container()
-        with chat_container:
-            for i, message in enumerate(st.session_state.chat_history):
-                if message["role"] == "user":
-                    st.markdown(f"""
-                    <div style='background:#e0e7ff;padding:10px;border-radius:8px;margin-bottom:8px;'>
-                        <strong style='color:#3730a3;'>You:</strong>
-                        <p style='margin:4px 0 0 0;color:#1e1b4b;font-size:14px;'>{message["content"]}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown(f"""
-                    <div style='background:#ffffff;border:1px solid #e5e7eb;padding:10px;border-radius:8px;margin-bottom:8px;'>
-                        <strong style='color:#7c3aed;'>🤖 AI:</strong>
-                        <p style='margin:4px 0 0 0;color:#374151;font-size:14px;'>{message["content"]}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-        
-        # Chat input
-        user_message = st.text_input(
-            "Ask a question:",
-            placeholder="e.g., 'Show me top 5 products by revenue'",
-            key="chat_input"
-        )
-        
-        if user_message:
-            # Add user message to history
-            st.session_state.chat_history.append({"role": "user", "content": user_message})
+        <p style='color:#64748b;font-size:13px;margin-bottom:16px;'>
+            Ask questions about your business data and get instant insights!
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Close button
+    if st.button("✕ Close", key="close_chat", type="secondary"):
+        st.session_state.chat_open = False
+        st.rerun()
+    
+    st.markdown("---")
+    
+    # Display chat history
+    for i, message in enumerate(st.session_state.chat_history):
+        if message["role"] == "user":
+            st.markdown(f"""
+            <div style='background:#e0e7ff;padding:12px;border-radius:8px;margin-bottom:12px;'>
+                <strong style='color:#3730a3;'>You:</strong>
+                <p style='margin:6px 0 0 0;color:#1e1b4b;font-size:14px;'>{message["content"]}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div style='background:#f8fafc;border:1px solid #e5e7eb;padding:12px;border-radius:8px;margin-bottom:12px;'>
+                <strong style='color:#7c3aed;'>🤖 AI:</strong>
+                <p style='margin:6px 0 0 0;color:#374151;font-size:14px;'>{message["content"]}</p>
+            </div>
+            """, unsafe_allow_html=True)
             
-            # Process with AI
-            with st.spinner("🤔 Thinking..."):
-                try:
-                    if "openai" in st.secrets and "api_key" in st.secrets["openai"]:
-                        client = OpenAI(api_key=st.secrets["openai"]["api_key"])
-                        
-                        schema_context = """
+            # Show data table if it's a query result
+            if "data_table" in message and message["data_table"] is not None:
+                st.dataframe(message["data_table"], use_container_width=True)
+    
+    # Chat input at the bottom
+    st.markdown("---")
+    user_message = st.text_input(
+        "💬 Type your question:",
+        placeholder="e.g., 'Show me top 5 products by revenue'",
+        key="chat_input_msg"
+    )
+    
+    if user_message:
+        # Add user message to history
+        st.session_state.chat_history.append({"role": "user", "content": user_message})
+        
+        # Process with AI
+        with st.spinner("🤔 AI is thinking..."):
+            try:
+                if "openai" in st.secrets and "api_key" in st.secrets["openai"]:
+                    client = OpenAI(api_key=st.secrets["openai"]["api_key"])
+                    
+                    schema_context = """
 Database Schema:
 - transactions: transaction_id, invoice_no, customer_id, invoice_date, total_amount
 - transaction_items: item_id, transaction_id, product_id, quantity, unit_price, is_return, line_total
 - products: product_id, stock_code, description
-- customers: customer_id, country
-
-You can query data to answer business questions."""
-                        
-                        # Convert to SQL
-                        response = client.chat.completions.create(
-                            model="gpt-3.5-turbo",
-                            messages=[
-                                {"role": "system", "content": f"You are a SQL expert. Convert questions to MySQL queries. {schema_context}\n\nReturn ONLY the SQL query."},
-                                {"role": "user", "content": user_message}
-                            ],
-                            max_tokens=200,
-                            temperature=0.3
-                        )
-                        
-                        sql_query = response.choices[0].message.content.strip().replace("```sql", "").replace("```", "").strip()
-                        
-                        # Execute query
-                        try:
-                            result_df = get_data(sql_query)
-                            if result_df is not None and not result_df.empty:
-                                # Generate natural language response
-                                summary_response = client.chat.completions.create(
-                                    model="gpt-3.5-turbo",
-                                    messages=[
-                                        {"role": "system", "content": "You are a business analyst. Provide a concise 2-3 sentence answer with key insights."},
-                                        {"role": "user", "content": f"Question: {user_message}\n\nData:\n{result_df.head(10).to_string()}"}
-                                    ],
-                                    max_tokens=150,
-                                    temperature=0.7
-                                )
-                                ai_response = summary_response.choices[0].message.content.strip()
-                                
-                                # Add AI response to history
-                                st.session_state.chat_history.append({"role": "assistant", "content": ai_response})
-                                
-                                # Show data table
-                                st.dataframe(result_df.head(10), use_container_width=True)
-                            else:
-                                st.session_state.chat_history.append({"role": "assistant", "content": "No data found for your question."})
-                        except Exception as e:
-                            st.session_state.chat_history.append({"role": "assistant", "content": f"Error: {str(e)}"})
-                    else:
-                        st.session_state.chat_history.append({"role": "assistant", "content": "⚠️ OpenAI API key not configured."})
-                except Exception as e:
-                    st.session_state.chat_history.append({"role": "assistant", "content": f"Error: {str(e)}"})
-            
-            st.rerun()
+- customers: customer_id, country"""
+                    
+                    # Convert to SQL
+                    response = client.chat.completions.create(
+                        model="gpt-3.5-turbo",
+                        messages=[
+                            {"role": "system", "content": f"You are a SQL expert. Convert questions to MySQL queries. {schema_context}\n\nReturn ONLY the SQL query."},
+                            {"role": "user", "content": user_message}
+                        ],
+                        max_tokens=200,
+                        temperature=0.3
+                    )
+                    
+                    sql_query = response.choices[0].message.content.strip().replace("```sql", "").replace("```", "").strip()
+                    
+                    # Execute query
+                    try:
+                        result_df = get_data(sql_query)
+                        if result_df is not None and not result_df.empty:
+                            # Generate natural language response
+                            summary_response = client.chat.completions.create(
+                                model="gpt-3.5-turbo",
+                                messages=[
+                                    {"role": "system", "content": "You are a business analyst. Provide a concise 2-3 sentence answer with key insights."},
+                                    {"role": "user", "content": f"Question: {user_message}\n\nData:\n{result_df.head(10).to_string()}"}
+                                ],
+                                max_tokens=150,
+                                temperature=0.7
+                            )
+                            ai_response = summary_response.choices[0].message.content.strip()
+                            
+                            # Add AI response to history with data
+                            st.session_state.chat_history.append({
+                                "role": "assistant", 
+                                "content": ai_response,
+                                "data_table": result_df.head(10)
+                            })
+                        else:
+                            st.session_state.chat_history.append({"role": "assistant", "content": "No data found for your question."})
+                    except Exception as e:
+                        st.session_state.chat_history.append({"role": "assistant", "content": f"Error executing query: {str(e)}"})
+                else:
+                    st.session_state.chat_history.append({"role": "assistant", "content": "⚠️ OpenAI API key not configured."})
+            except Exception as e:
+                st.session_state.chat_history.append({"role": "assistant", "content": f"Error: {str(e)}"})
         
-        if st.button("🗑️ Clear Chat", use_container_width=True):
+        st.rerun()
+    
+    if len(st.session_state.chat_history) > 0:
+        if st.button("🗑️ Clear Chat History", use_container_width=True):
             st.session_state.chat_history = []
             st.rerun()
 
