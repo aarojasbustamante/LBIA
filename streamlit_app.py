@@ -972,67 +972,163 @@ if "chat_history" not in st.session_state:
 if "chat_open" not in st.session_state:
     st.session_state.chat_open = False
 
-# FLOATING CHAT WIDGET (Bottom Right Corner)
-# Chat toggle button
-chat_button_container = st.container()
+# Navigation bar
+nav_cols = st.columns([2.5, 1, 1, 1, 1, 1, 1, 0.5])
 
-# Create columns to position button on right
-col1, col2 = st.columns([20, 1])
+with nav_cols[0]:
+    # logo + brand
+    st.markdown("""
+    <div style="display:flex;align-items:center;gap:10px;">
+        <div style="
+            width:36px;height:36px;
+            border-radius:12px;
+            background:linear-gradient(135deg,#3b82f6,#6366f1);
+            display:flex;align-items:center;justify-content:center;
+            color:white;font-weight:700;font-size:18px;">
+            L
+        </div>
+        <div>
+            <div style="font-size:18px;font-weight:700;">LBIA</div>
+            <div style="font-size:11px;color:#64748b;margin-top:-2px;">Business Intelligence</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-with col2:
-    # Toggle button
-    if st.session_state.chat_open:
-        if st.button("✕", key="close_chat_btn", help="Close AI Chat"):
-            st.session_state.chat_open = False
-            st.rerun()
-    else:
-        if st.button("🤖💬", key="open_chat_btn", help="Open AI Chat"):
-            st.session_state.chat_open = True
-            st.rerun()
+with nav_cols[1]:
+    if st.button("Overview"):
+        st.session_state.page = "Overview"
+with nav_cols[2]:
+    if st.button("Revenue"):
+        st.session_state.page = "Revenue"
+with nav_cols[3]:
+    if st.button("Inventory"):
+        st.session_state.page = "Inventory"
+with nav_cols[4]:
+    if st.button("Forecast"):
+        st.session_state.page = "Forecast"
+with nav_cols[5]:
+    if st.button("About"):
+        st.session_state.page = "About"
 
-# Display chat window when open
+with nav_cols[7]:
+    if st.button("🤖 AI Chat", key="ai_chat_btn", type="primary", use_container_width=True):
+        st.session_state.chat_open = not st.session_state.get("chat_open", False)
+        st.rerun()
+
+st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
+
+# FLOATING CHAT WIDGET - Right Side
 if st.session_state.chat_open:
-    # Chat window
-    with st.expander("🤖 AI Data Assistant", expanded=True):
-        st.markdown("Ask questions about your business data - I'll query the database for you!")
+    # Create a container for the floating chat
+    chat_container = st.container()
+    
+    with chat_container:
+        # Floating chat panel with HTML/CSS
+        st.markdown("""
+        <style>
+            .floating-chat {
+                position: fixed;
+                right: 20px;
+                top: 80px;
+                width: 420px;
+                max-height: calc(100vh - 100px);
+                background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+                border-radius: 16px;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+                z-index: 9999;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+            }
+            
+            .chat-header {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                padding: 16px 20px;
+                border-radius: 16px 16px 0 0;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            
+            .chat-title {
+                color: white;
+                font-size: 16px;
+                font-weight: 600;
+                margin: 0;
+            }
+            
+            .chat-messages {
+                flex: 1;
+                overflow-y: auto;
+                padding: 20px;
+                max-height: 500px;
+            }
+        </style>
+        
+        <div class="floating-chat">
+            <div class="chat-header">
+                <div class="chat-title">🤖 AI Data Assistant</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Chat content within a Streamlit container for interactivity
+        st.markdown("""
+        <div style='
+            position: fixed;
+            right: 20px;
+            top: 130px;
+            width: 420px;
+            max-height: calc(100vh - 180px);
+            background: transparent;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+        '>
+        """, unsafe_allow_html=True)
         
         # Display chat history
-        for message in st.session_state.chat_history:
-            if message["role"] == "user":
-                st.markdown(f"""
-                <div style='background:#3b82f6;padding:10px 14px;border-radius:12px;margin-bottom:10px;'>
-                    <strong style='color:#ffffff;font-size:11px;'>You</strong>
-                    <p style='margin:4px 0 0 0;color:#ffffff;font-size:13px;'>{message["content"]}</p>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown(f"""
-                <div style='background:#334155;padding:10px 14px;border-radius:12px;margin-bottom:10px;'>
-                    <strong style='color:#a78bfa;font-size:11px;'>🤖 AI</strong>
-                    <p style='margin:4px 0 0 0;color:#e2e8f0;font-size:13px;'>{message["content"]}</p>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # Show data table
-                if "data_table" in message and message["data_table"] is not None:
-                    st.dataframe(message["data_table"], use_container_width=True, height=150)
-        
-        st.markdown("---")
+        chat_scroll = st.container()
+        with chat_scroll:
+            for message in st.session_state.chat_history:
+                if message["role"] == "user":
+                    st.markdown(f"""
+                    <div style='background:#3b82f6;padding:10px 14px;border-radius:12px;margin-bottom:10px;'>
+                        <strong style='color:#ffffff;font-size:11px;'>You</strong>
+                        <p style='margin:4px 0 0 0;color:#ffffff;font-size:13px;'>{message["content"]}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                    <div style='background:#334155;padding:10px 14px;border-radius:12px;margin-bottom:10px;'>
+                        <strong style='color:#a78bfa;font-size:11px;'>🤖 AI</strong>
+                        <p style='margin:4px 0 0 0;color:#e2e8f0;font-size:13px;'>{message["content"]}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Show data table
+                    if "data_table" in message and message["data_table"] is not None:
+                        st.dataframe(message["data_table"], use_container_width=True, height=150)
         
         # Input area
         user_input = st.text_area(
-            "Your question:",
-            placeholder="e.g., 'Show me top 5 products by revenue' or 'Which country has most customers?'",
+            "Ask a question:",
+            placeholder="e.g., 'Show me top 5 products by revenue'",
             key="chat_user_input",
-            height=80
+            height=80,
+            label_visibility="collapsed"
         )
         
-        col_send, col_clear = st.columns([3, 1])
+        col_send, col_clear, col_close = st.columns([2, 1, 1])
         with col_send:
-            send_btn = st.button("📤 Send", type="primary", use_container_width=True)
+            send_btn = st.button("📤 Send", type="primary", use_container_width=True, key="send_msg")
         with col_clear:
-            if st.button("🗑️", use_container_width=True, help="Clear chat"):
+            if st.button("🗑️", use_container_width=True, help="Clear chat", key="clear_chat"):
                 st.session_state.chat_history = []
+                st.rerun()
+        with col_close:
+            if st.button("✕", use_container_width=True, help="Close chat", key="close_chat_widget"):
+                st.session_state.chat_open = False
                 st.rerun()
         
         # Process message
@@ -1095,51 +1191,8 @@ Database Schema:
                     st.session_state.chat_history.append({"role": "assistant", "content": f"Error: {str(e)}"})
             
             st.rerun()
-
-# Navigation bar
-nav_cols = st.columns([2.5, 1, 1, 1, 1, 1, 1, 0.5])
-
-with nav_cols[0]:
-    # logo + brand
-    st.markdown("""
-    <div style="display:flex;align-items:center;gap:10px;">
-        <div style="
-            width:36px;height:36px;
-            border-radius:12px;
-            background:linear-gradient(135deg,#3b82f6,#6366f1);
-            display:flex;align-items:center;justify-content:center;
-            color:white;font-weight:700;font-size:18px;">
-            L
-        </div>
-        <div>
-            <div style="font-size:18px;font-weight:700;">LBIA</div>
-            <div style="font-size:11px;color:#64748b;margin-top:-2px;">Business Intelligence</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with nav_cols[1]:
-    if st.button("Overview"):
-        st.session_state.page = "Overview"
-with nav_cols[2]:
-    if st.button("Revenue"):
-        st.session_state.page = "Revenue"
-with nav_cols[3]:
-    if st.button("Inventory"):
-        st.session_state.page = "Inventory"
-with nav_cols[4]:
-    if st.button("Forecast"):
-        st.session_state.page = "Forecast"
-with nav_cols[5]:
-    if st.button("About"):
-        st.session_state.page = "About"
-
-with nav_cols[7]:
-    if st.button("🤖 AI Chat", key="ai_chat_btn", type="primary", use_container_width=True):
-        st.session_state.chat_open = not st.session_state.get("chat_open", False)
-        st.rerun()
-
-st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
+        
+        st.markdown("</div>", unsafe_allow_html=True)
 
 page = st.session_state.page
 
