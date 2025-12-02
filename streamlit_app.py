@@ -1108,7 +1108,7 @@ if "page" not in st.session_state:
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 if "chat_open" not in st.session_state:
-    st.session_state.chat_open = False
+    st.session_state.chat_open = True  # Open by default
 
 # Navigation bar
 nav_cols = st.columns([2.5, 1, 1, 1, 1, 1, 1, 0.5])
@@ -1147,11 +1147,6 @@ with nav_cols[4]:
 with nav_cols[5]:
     if st.button("About"):
         st.session_state.page = "About"
-
-with nav_cols[7]:
-    if st.button("🤖 AI Chat", key="ai_chat_btn", type="primary", use_container_width=True):
-        st.session_state.chat_open = not st.session_state.get("chat_open", False)
-        st.rerun()
 
 st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
 
@@ -1394,9 +1389,6 @@ value that might signal pricing or promotion issues.
         ))
         fig.update_layout(height=320, plot_bgcolor="white")
         st.plotly_chart(fig, use_container_width=True)
-    
-    # AI Chat Widget
-    render_chat_widget("Overview")
 
 # -----------------------------
 # REVENUE PAGE
@@ -1636,8 +1628,6 @@ bundle together, or avoid discounting too heavily.
             )
         else:
             st.info("No data available")
-    
-    render_chat_widget("Revenue")
 
 # -----------------------------
 # INVENTORY PAGE
@@ -1885,8 +1875,6 @@ elif page == "Inventory":
     
     else:
         st.warning("No inventory data available.")
-    
-    render_chat_widget("Inventory")
 
 # -----------------------------
 # FORECAST PAGE
@@ -2091,8 +2079,6 @@ elif page == "Forecast":
     
     else:
         st.warning("Insufficient data for forecasting. Need at least 3 months of historical data.")
-    
-    render_chat_widget("Forecast")
 
 # -----------------------------
 # ABOUT PAGE
@@ -2141,6 +2127,16 @@ into decisions using real-time dashboards, forecasting, and AI-generated recomme
         st.image("Marcia.jpeg", width=200)
         st.markdown("<p style='margin-top:10px;margin-bottom:0;'><strong>Marcia Rivera</strong><br/>Co-Founder</p>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
+
+# -----------------------------
+# GLOBAL AI CHAT - BOTTOM OF PAGE
+# -----------------------------
+st.markdown("<div style='height:60px;'></div>", unsafe_allow_html=True)
+st.markdown("---", unsafe_allow_html=True)
+
+# Get current page context for chat
+current_page = st.session_state.page
+render_chat_widget(f"{current_page}")
 
 # -----------------------------
 # FOOTER
