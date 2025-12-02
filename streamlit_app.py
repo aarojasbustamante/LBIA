@@ -1096,11 +1096,20 @@ if page == "Overview":
 
     # NATURAL LANGUAGE QUERY INTERFACE
     st.markdown("---")
-    st.markdown("### 🤖 Ask Your Data Anything")
-    st.markdown("Use natural language to query your business data - powered by AI")
+    st.markdown("""
+    <div style='background:#ffffff;border:2px solid #3b82f6;border-radius:12px;
+                padding:20px;margin:16px 0;'>
+        <h3 style='margin:0 0 8px 0;color:#1e40af;'>
+            🤖 Ask Your Data Anything
+        </h3>
+        <p style='margin:0;color:#64748b;font-size:14px;'>
+            Type your question below and AI will query your database
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
     
     user_query = st.text_input(
-        "Type your question here:",
+        "👉 Type your question here:",
         placeholder="e.g., 'Which products are losing money?' or 'Show me top customers in Germany'",
         key="nl_query",
         help="Ask any question about your business data and AI will convert it to SQL and show results"
