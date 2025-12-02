@@ -1390,6 +1390,95 @@ value that might signal pricing or promotion issues.
         ))
         fig.update_layout(height=320, plot_bgcolor="white")
         st.plotly_chart(fig, use_container_width=True)
+    
+    # CUSTOMER CHURN PREDICTION
+    st.markdown("### 🎯 Customer Retention Intelligence")
+    st.markdown("""
+    <div style='background:#fef3c7;border-left:4px solid #f59e0b;padding:16px;
+                border-radius:8px;margin-bottom:16px;'>
+        <p style='margin:0;color:#92400e;font-size:14px;'>
+            <strong>AI-Powered Churn Prediction:</strong> Identifying high-value customers 
+            at risk of churning based on purchase patterns and recency.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    churn_customers = predict_customer_churn()
+    
+    if churn_customers is not None and not churn_customers.empty:
+        # Summary metrics
+        col1, col2, col3 = st.columns(3)
+        high_risk = len(churn_customers[churn_customers['churn_risk'] == 'High Risk'])
+        medium_risk = len(churn_customers[churn_customers['churn_risk'] == 'Medium Risk'])
+        total_at_risk_value = churn_customers['total_spent'].sum()
+        
+        col1.metric("🚨 High Risk Customers", high_risk, help="Not ordered in 180+ days")
+        col2.metric("⚠️ Medium Risk Customers", medium_risk, help="Not ordered in 90-180 days")
+        col3.metric("💰 At-Risk Revenue", f"£{total_at_risk_value:,.0f}", help="Total lifetime value at risk")
+        
+        # Display churn risk customers
+        st.markdown("#### Top At-Risk Customers")
+        
+        # Format the dataframe for display
+        display_churn = churn_customers.copy()
+        display_churn['total_spent'] = display_churn['total_spent'].apply(lambda x: f"£{x:,.2f}")
+        display_churn['avg_order_value'] = display_churn['avg_order_value'].apply(lambda x: f"£{x:,.2f}")
+        display_churn['total_orders'] = display_churn['total_orders'].apply(lambda x: f"{int(x):,}")
+        
+        st.dataframe(
+            display_churn,
+            use_container_width=True,
+            column_config={
+                "customer_id": "Customer ID",
+                "country": "Country",
+                "total_orders": "Total Orders",
+                "total_spent": "Lifetime Value",
+                "last_order_date": "Last Order",
+                "days_since_last_order": "Days Inactive",
+                "avg_order_value": "Avg Order",
+                "churn_risk": st.column_config.TextColumn(
+                    "Risk Level",
+                    help="High Risk: 180+ days | Medium Risk: 90-180 days"
+                )
+            }
+        )
+        
+        # AI-powered retention strategies
+        if "openai" in st.secrets and "api_key" in st.secrets["openai"]:
+            if st.button("🤖 Generate Retention Strategies", key="churn_ai_overview"):
+                with st.spinner("AI is creating personalized retention strategies..."):
+                    try:
+                        client = OpenAI(api_key=st.secrets["openai"]["api_key"])
+                        
+                        top_3_customers = churn_customers.head(3).to_dict('records')
+                        customer_summary = "\n".join([
+                            f"- Customer {c['customer_id']} ({c['country']}): £{c['total_spent']:,.0f} lifetime value, {c['days_since_last_order']} days inactive, {c['total_orders']} past orders"
+                            for c in top_3_customers
+                        ])
+                        
+                        response = client.chat.completions.create(
+                            model="gpt-3.5-turbo",
+                            messages=[
+                                {"role": "system", "content": "You are a customer retention specialist. Provide 3 specific, actionable strategies to re-engage churning customers."},
+                                {"role": "user", "content": f"Top at-risk customers:\n{customer_summary}\n\nSuggest 3 personalized retention strategies."}
+                            ],
+                            max_tokens=300,
+                            temperature=0.7
+                        )
+                        
+                        strategies = response.choices[0].message.content.strip()
+                        
+                        st.markdown("""
+                        <div style='background:#d1fae5;border-left:4px solid #10b981;
+                                    padding:16px;border-radius:8px;margin-top:16px;'>
+                            <h4 style='margin:0 0 12px 0;color:#065f46;'>💡 AI-Recommended Retention Strategies</h4>
+                        """, unsafe_allow_html=True)
+                        st.markdown(f"<p style='margin:0;color:#065f46;white-space:pre-wrap;'>{strategies}</p></div>", unsafe_allow_html=True)
+                        
+                    except Exception as e:
+                        st.error(f"Error generating strategies: {str(e)}")
+    else:
+        st.info("No at-risk customers identified. Great retention!")
 
 # -----------------------------
 # REVENUE PAGE
@@ -1452,108 +1541,6 @@ elif page == "Revenue":
         f"Top 5 Countries by Revenue: {countries_text}."
     )
     render_ai("revenue", "AI commentary on your revenue distribution.", revenue_summary)
-
-    # CUSTOMER CHURN PREDICTION
-    st.markdown("### 🎯 Customer Retention Intelligence")
-    st.markdown("""
-    <div style='background:#fef3c7;border-left:4px solid #f59e0b;padding:16px;
-                border-radius:8px;margin-bottom:16px;'>
-        <p style='margin:0;color:#92400e;font-size:14px;'>
-            <strong>AI-Powered Churn Prediction:</strong> Identifying high-value customers 
-            at risk of churning based on purchase patterns and recency.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    churn_customers = predict_customer_churn()
-    
-    if churn_customers is not None and not churn_customers.empty:
-        # Summary metrics
-        col1, col2, col3 = st.columns(3)
-        high_risk = len(churn_customers[churn_customers['churn_risk'] == 'High Risk'])
-        medium_risk = len(churn_customers[churn_customers['churn_risk'] == 'Medium Risk'])
-        total_at_risk_value = churn_customers['total_spent'].sum()
-        
-        col1.metric("🚨 High Risk Customers", high_risk, help="Not ordered in 180+ days")
-        col2.metric("⚠️ Medium Risk Customers", medium_risk, help="Not ordered in 90-180 days")
-        col3.metric("💰 At-Risk Revenue", f"£{total_at_risk_value:,.0f}", help="Total lifetime value at risk")
-        
-        # Display churn risk customers
-        st.markdown("#### Top At-Risk Customers")
-        
-        # Format the dataframe for display
-        display_churn = churn_customers.copy()
-        display_churn['total_spent'] = display_churn['total_spent'].apply(lambda x: f"£{x:,.2f}")
-        display_churn['avg_order_value'] = display_churn['avg_order_value'].apply(lambda x: f"£{x:,.2f}")
-        display_churn['total_orders'] = display_churn['total_orders'].apply(lambda x: f"{int(x):,}")
-        
-        # Color code by risk level
-        def highlight_risk(row):
-            if row['churn_risk'] == 'High Risk':
-                return ['background-color: #fee2e2'] * len(row)
-            elif row['churn_risk'] == 'Medium Risk':
-                return ['background-color: #fef3c7'] * len(row)
-            else:
-                return [''] * len(row)
-        
-        styled_df = display_churn.style.apply(highlight_risk, axis=1)
-        
-        st.dataframe(
-            display_churn,
-            use_container_width=True,
-            column_config={
-                "customer_id": "Customer ID",
-                "country": "Country",
-                "total_orders": "Total Orders",
-                "total_spent": "Lifetime Value",
-                "last_order_date": "Last Order",
-                "days_since_last_order": "Days Inactive",
-                "avg_order_value": "Avg Order",
-                "churn_risk": st.column_config.TextColumn(
-                    "Risk Level",
-                    help="High Risk: 180+ days | Medium Risk: 90-180 days"
-                )
-            }
-        )
-        
-        # AI-powered retention strategies
-        if "openai" in st.secrets and "api_key" in st.secrets["openai"]:
-            if st.button("🤖 Generate Retention Strategies", key="churn_ai"):
-                with st.spinner("AI is creating personalized retention strategies..."):
-                    try:
-                        client = OpenAI(api_key=st.secrets["openai"]["api_key"])
-                        
-                        top_3_customers = churn_customers.head(3).to_dict('records')
-                        customer_summary = "\n".join([
-                            f"- Customer {c['customer_id']} ({c['country']}): £{c['total_spent']:,.0f} lifetime value, {c['days_since_last_order']} days inactive, {c['total_orders']} past orders"
-                            for c in top_3_customers
-                        ])
-                        
-                        response = client.chat.completions.create(
-                            model="gpt-3.5-turbo",
-                            messages=[
-                                {"role": "system", "content": "You are a customer retention specialist. Provide 3 specific, actionable strategies to re-engage churning customers."},
-                                {"role": "user", "content": f"Top at-risk customers:\n{customer_summary}\n\nSuggest 3 personalized retention strategies."}
-                            ],
-                            max_tokens=300,
-                            temperature=0.7
-                        )
-                        
-                        strategies = response.choices[0].message.content.strip()
-                        
-                        st.markdown("""
-                        <div style='background:#d1fae5;border-left:4px solid #10b981;
-                                    padding:16px;border-radius:8px;margin-top:16px;'>
-                            <h4 style='margin:0 0 12px 0;color:#065f46;'>💡 AI-Recommended Retention Strategies</h4>
-                        """, unsafe_allow_html=True)
-                        st.markdown(f"<p style='margin:0;color:#065f46;white-space:pre-wrap;'>{strategies}</p></div>", unsafe_allow_html=True)
-                        
-                    except Exception as e:
-                        st.error(f"Error generating strategies: {str(e)}")
-    else:
-        st.info("No at-risk customers identified. Great retention!")
-    
-    st.markdown("---")
 
     st.markdown("""
 This page shows where money is actually coming from - which products drive the most revenue and
@@ -2130,14 +2117,12 @@ into decisions using real-time dashboards, forecasting, and AI-generated recomme
         st.markdown("</div>", unsafe_allow_html=True)
 
 # -----------------------------
-# GLOBAL AI CHAT - BOTTOM OF PAGE
+# AI CHAT - ONLY ON OVERVIEW PAGE
 # -----------------------------
-st.markdown("<div style='height:60px;'></div>", unsafe_allow_html=True)
-st.markdown("---", unsafe_allow_html=True)
-
-# Get current page context for chat
-current_page = st.session_state.page
-render_chat_widget(f"{current_page}")
+if st.session_state.page == "Overview":
+    st.markdown("<div style='height:60px;'></div>", unsafe_allow_html=True)
+    st.markdown("---", unsafe_allow_html=True)
+    render_chat_widget("Overview")
 
 # -----------------------------
 # FOOTER
