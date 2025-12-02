@@ -288,10 +288,10 @@ def ai_insight(context, page_key="overview"):
         
         # Customize prompt based on page
         page_prompts = {
-            "overview": "Analyze this overall business performance data and provide 3-5 key insights. Include specific numbers from the data (revenue, orders, customers, return rates). Format as bullet points starting with '- '.",
-            "revenue": "Analyze this revenue data focusing on product performance and geographic distribution. Include specific revenue amounts, units sold, and country names from the data. Provide 3-5 insights as bullet points starting with '- '.",
-            "inventory": "Analyze this inventory data focusing on stock levels and turnover. Include specific product names, stock quantities, days left, and return rates from the data. Provide 3-5 insights as bullet points starting with '- '.",
-            "forecast": "Analyze this revenue forecast data. Include specific revenue amounts, trend direction, and accuracy metrics from the data. Provide 3-5 insights as bullet points starting with '- '."
+            "overview": "Analyze this overall business performance data and provide 3-5 key insights. Include specific numbers from the data (revenue, orders, customers, return rates). Format each insight as: '- [emoji] insight text'. Use emojis like 💰📊🎯✅⚠️",
+            "revenue": "Analyze this revenue data focusing on product performance and geographic distribution. Include specific revenue amounts, units sold, and country names. Format each insight as: '- [emoji] insight text'. Use emojis like 💰🌍📈⭐🎯",
+            "inventory": "Analyze this inventory data focusing on stock levels and turnover. Include specific product names, stock quantities, days left, and return rates. Format each insight as: '- [emoji] insight text'. Use emojis like 📦⚡🔄⚠️✅",
+            "forecast": "Analyze this revenue forecast data. Include specific revenue amounts, trend direction, and accuracy metrics. Format each insight as: '- [emoji] insight text'. Use emojis like 📈🎯✅⚡🔮"
         }
         
         analysis_focus = page_prompts.get(page_key, page_prompts["overview"])
@@ -308,8 +308,9 @@ def ai_insight(context, page_key="overview"):
                         "role": "system",
                         "content": (
                             "You are a business intelligence analyst. Provide plain text insights only. "
-                            "No markdown, no **, no #. Use bullet points starting with '- '. "
-                            "Include specific numbers and emojis for visual appeal. Be concise and actionable."
+                            "No markdown, no **, no #. Each bullet point must start with '- ' followed immediately by an emoji and then the insight text. "
+                            "Format: '- 💰 Revenue insight here' or '- 📊 Analysis here'. "
+                            "Always start each insight with an emoji after the dash. Be concise and include specific numbers."
                         )
                     },
                     {
@@ -771,15 +772,26 @@ def render_ai(page_key, description, context):
                 # Remove the leading dash
                 clean_insight = insight.lstrip('- ').strip()
                 
-                # Extract emoji if present (first character)
-                emoji = ""
+                # Extract emoji - improved detection
+                emoji = "📊"  # Default emoji if none found
                 text = clean_insight
+                
                 if clean_insight and len(clean_insight) > 0:
-                    first_char = clean_insight[0]
-                    # Check if first character is an emoji (basic check)
-                    if ord(first_char) > 127:
-                        emoji = first_char
-                        text = clean_insight[1:].strip()
+                    # Try to find emoji at the start (could be multi-byte)
+                    import re
+                    # Match emoji at the start of string
+                    emoji_pattern = re.compile(r'^([\U0001F300-\U0001F9FF\u2600-\u26FF\u2700-\u27BF\U0001F600-\U0001F64F\U0001F680-\U0001F6FF]+)\s*')
+                    match = emoji_pattern.match(clean_insight)
+                    
+                    if match:
+                        emoji = match.group(1)
+                        text = clean_insight[len(match.group(0)):].strip()
+                    else:
+                        # Fallback: check first character
+                        first_char = clean_insight[0]
+                        if ord(first_char) > 127:  # Non-ASCII character (likely emoji)
+                            emoji = first_char
+                            text = clean_insight[1:].strip()
                 
                 # Create visual card for each insight
                 formatted_html += f"""
