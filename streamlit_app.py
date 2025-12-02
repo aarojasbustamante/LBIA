@@ -31,7 +31,14 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     * {font-family: 'Inter', sans-serif;}
 
-    [data-testid="stSidebar"] {display:none;}
+    /* Enable sidebar for AI chat */
+    [data-testid="stSidebar"] {
+        background-color: #1a1a1a !important;
+    }
+    [data-testid="stSidebar"] > div:first-child {
+        background-color: #1a1a1a !important;
+    }
+    
     #MainMenu, footer, header {visibility:hidden;}
     .stApp {background:#1a1a1a;}
     
@@ -923,6 +930,148 @@ def render_ai(page_key, description, context):
 if "page" not in st.session_state:
     st.session_state.page = "Overview"
 
+# Initialize chat history
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+if "chat_open" not in st.session_state:
+    st.session_state.chat_open = False
+
+# AI CHAT SIDEBAR (Floating on the right)
+st.markdown("""
+<style>
+    .chat-toggle {
+        position: fixed;
+        right: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 999;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 12px 20px;
+        border-radius: 30px 0 0 30px;
+        cursor: pointer;
+        box-shadow: -2px 2px 10px rgba(0,0,0,0.2);
+        font-weight: 600;
+        writing-mode: vertical-rl;
+        text-orientation: mixed;
+    }
+    .chat-toggle:hover {
+        box-shadow: -2px 2px 15px rgba(0,0,0,0.3);
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Chat toggle button in sidebar
+with st.sidebar:
+    st.markdown("---")
+    st.markdown("### 🤖 AI Assistant")
+    
+    if st.button("💬 Open AI Chat", use_container_width=True, type="primary"):
+        st.session_state.chat_open = not st.session_state.chat_open
+    
+    if st.session_state.chat_open:
+        st.markdown("""
+        <div style='background:#f8fafc;padding:12px;border-radius:8px;margin-bottom:12px;'>
+            <p style='margin:0;font-size:13px;color:#64748b;'>
+                Ask questions about your business data and get instant insights!
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Display chat history
+        chat_container = st.container()
+        with chat_container:
+            for i, message in enumerate(st.session_state.chat_history):
+                if message["role"] == "user":
+                    st.markdown(f"""
+                    <div style='background:#e0e7ff;padding:10px;border-radius:8px;margin-bottom:8px;'>
+                        <strong style='color:#3730a3;'>You:</strong>
+                        <p style='margin:4px 0 0 0;color:#1e1b4b;font-size:14px;'>{message["content"]}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                    <div style='background:#ffffff;border:1px solid #e5e7eb;padding:10px;border-radius:8px;margin-bottom:8px;'>
+                        <strong style='color:#7c3aed;'>🤖 AI:</strong>
+                        <p style='margin:4px 0 0 0;color:#374151;font-size:14px;'>{message["content"]}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+        
+        # Chat input
+        user_message = st.text_input(
+            "Ask a question:",
+            placeholder="e.g., 'Show me top 5 products by revenue'",
+            key="chat_input"
+        )
+        
+        if user_message:
+            # Add user message to history
+            st.session_state.chat_history.append({"role": "user", "content": user_message})
+            
+            # Process with AI
+            with st.spinner("🤔 Thinking..."):
+                try:
+                    if "openai" in st.secrets and "api_key" in st.secrets["openai"]:
+                        client = OpenAI(api_key=st.secrets["openai"]["api_key"])
+                        
+                        schema_context = """
+Database Schema:
+- transactions: transaction_id, invoice_no, customer_id, invoice_date, total_amount
+- transaction_items: item_id, transaction_id, product_id, quantity, unit_price, is_return, line_total
+- products: product_id, stock_code, description
+- customers: customer_id, country
+
+You can query data to answer business questions."""
+                        
+                        # Convert to SQL
+                        response = client.chat.completions.create(
+                            model="gpt-3.5-turbo",
+                            messages=[
+                                {"role": "system", "content": f"You are a SQL expert. Convert questions to MySQL queries. {schema_context}\n\nReturn ONLY the SQL query."},
+                                {"role": "user", "content": user_message}
+                            ],
+                            max_tokens=200,
+                            temperature=0.3
+                        )
+                        
+                        sql_query = response.choices[0].message.content.strip().replace("```sql", "").replace("```", "").strip()
+                        
+                        # Execute query
+                        try:
+                            result_df = get_data(sql_query)
+                            if result_df is not None and not result_df.empty:
+                                # Generate natural language response
+                                summary_response = client.chat.completions.create(
+                                    model="gpt-3.5-turbo",
+                                    messages=[
+                                        {"role": "system", "content": "You are a business analyst. Provide a concise 2-3 sentence answer with key insights."},
+                                        {"role": "user", "content": f"Question: {user_message}\n\nData:\n{result_df.head(10).to_string()}"}
+                                    ],
+                                    max_tokens=150,
+                                    temperature=0.7
+                                )
+                                ai_response = summary_response.choices[0].message.content.strip()
+                                
+                                # Add AI response to history
+                                st.session_state.chat_history.append({"role": "assistant", "content": ai_response})
+                                
+                                # Show data table
+                                st.dataframe(result_df.head(10), use_container_width=True)
+                            else:
+                                st.session_state.chat_history.append({"role": "assistant", "content": "No data found for your question."})
+                        except Exception as e:
+                            st.session_state.chat_history.append({"role": "assistant", "content": f"Error: {str(e)}"})
+                    else:
+                        st.session_state.chat_history.append({"role": "assistant", "content": "⚠️ OpenAI API key not configured."})
+                except Exception as e:
+                    st.session_state.chat_history.append({"role": "assistant", "content": f"Error: {str(e)}"})
+            
+            st.rerun()
+        
+        if st.button("🗑️ Clear Chat", use_container_width=True):
+            st.session_state.chat_history = []
+            st.rerun()
+
 # Navigation bar
 nav_cols = st.columns([2.5, 1, 1, 1, 1, 1, 1.5, 1])
 
@@ -1093,97 +1242,6 @@ if page == "Overview":
                     except Exception as e:
                         st.error(f"Error processing file: {str(e)}")
                         logging.error(f"Upload error: {e}")
-
-    # NATURAL LANGUAGE QUERY INTERFACE
-    st.markdown("---")
-    st.markdown("""
-    <div style='background:#ffffff;border:2px solid #3b82f6;border-radius:12px;
-                padding:20px;margin:16px 0;'>
-        <h3 style='margin:0 0 8px 0;color:#1e40af;'>
-            🤖 Ask Your Data Anything
-        </h3>
-        <p style='margin:0;color:#64748b;font-size:14px;'>
-            Type your question below and AI will query your database
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    user_query = st.text_input(
-        "👉 Type your question here:",
-        placeholder="e.g., 'Which products are losing money?' or 'Show me top customers in Germany'",
-        key="nl_query",
-        help="Ask any question about your business data and AI will convert it to SQL and show results"
-    )
-    
-    if user_query:
-        with st.spinner("🧠 AI is analyzing your question..."):
-            try:
-                # Use OpenAI to convert natural language to SQL
-                if "openai" in st.secrets and "api_key" in st.secrets["openai"]:
-                    client = OpenAI(api_key=st.secrets["openai"]["api_key"])
-                    
-                    schema_context = """
-Database Schema:
-- transactions: transaction_id, invoice_no, customer_id, invoice_date, total_amount
-- transaction_items: item_id, transaction_id, product_id, quantity, unit_price, is_return, line_total
-- products: product_id, stock_code, description
-- customers: customer_id, country
-
-Common queries:
-- Revenue: SELECT SUM(line_total) FROM transaction_items WHERE is_return=0
-- Top products: JOIN transaction_items with products, GROUP BY product
-- Geographic analysis: JOIN transactions with customers
-"""
-                    
-                    response = client.chat.completions.create(
-                        model="gpt-3.5-turbo",
-                        messages=[
-                            {"role": "system", "content": f"You are a SQL expert. Convert natural language questions to MySQL queries. {schema_context}\n\nReturn ONLY the SQL query, no explanation."},
-                            {"role": "user", "content": user_query}
-                        ],
-                        max_tokens=200,
-                        temperature=0.3
-                    )
-                    
-                    sql_query = response.choices[0].message.content.strip()
-                    # Clean up the SQL (remove markdown code blocks if present)
-                    sql_query = sql_query.replace("```sql", "").replace("```", "").strip()
-                    
-                    st.code(sql_query, language="sql")
-                    
-                    # Execute the query
-                    try:
-                        result_df = get_data(sql_query)
-                        if result_df is not None and not result_df.empty:
-                            st.success(f"✅ Found {len(result_df)} results")
-                            st.dataframe(result_df, use_container_width=True)
-                            
-                            # AI explanation of results
-                            if len(result_df) > 0:
-                                summary_response = client.chat.completions.create(
-                                    model="gpt-3.5-turbo",
-                                    messages=[
-                                        {"role": "system", "content": "You are a business analyst. Provide a brief 2-sentence insight about this data."},
-                                        {"role": "user", "content": f"Question: {user_query}\n\nResults:\n{result_df.head(10).to_string()}"}
-                                    ],
-                                    max_tokens=150,
-                                    temperature=0.7
-                                )
-                                insight = summary_response.choices[0].message.content.strip()
-                                st.info(f"💡 **Insight:** {insight}")
-                        else:
-                            st.warning("No results found for this query.")
-                    except Exception as e:
-                        st.error(f"Error executing query: {str(e)}")
-                        logging.error(f"Query execution error: {e}")
-                else:
-                    st.warning("⚠️ OpenAI API key not configured. Add it to Streamlit secrets to use this feature.")
-                    
-            except Exception as e:
-                st.error(f"Error processing your question: {str(e)}")
-                logging.error(f"NL Query error: {e}")
-    
-    st.markdown("---")
 
     # Metrics
     rev = safe_value(get_data("SELECT SUM(line_total) FROM transaction_items WHERE is_return=0"))
