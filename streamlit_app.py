@@ -33,7 +33,16 @@ st.markdown("""
     [data-testid="stSidebar"] {display:none;}
     #MainMenu, footer, header {visibility:hidden;}
     .stApp {background:#1a1a1a;}
-    * {color: #ffffff !important;}
+    
+    /* White text for dark background elements */
+    body, p, span, h1, h2, h3, h4, h5, h6, label, .stMarkdown {
+        color: #ffffff !important;
+    }
+    
+    /* But NOT for elements inside .ai-box (white background containers) */
+    .ai-box, .ai-box * {
+        color: #000000 !important;
+    }
     
     /* Remove white containers/blocks between sections */
     [data-testid="stHorizontalBlock"] {
