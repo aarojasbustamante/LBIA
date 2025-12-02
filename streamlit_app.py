@@ -981,56 +981,77 @@ with chat_col2:
 
 # RIGHT-SIDE CHAT PANEL
 if st.session_state.chat_open:
+    # Dark themed chat panel
     st.markdown("""
-    <div style='position:fixed;right:0;top:0;width:420px;height:100vh;
-                background:#ffffff;box-shadow:-4px 0 20px rgba(0,0,0,0.15);
-                z-index:9999;overflow-y:auto;padding:24px;'>
-        <div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;'>
-            <h2 style='margin:0;color:#1e40af;font-size:20px;'>🤖 AI Assistant</h2>
+    <div style='position:fixed;right:0;top:0;width:450px;height:100vh;
+                background:#1e293b;box-shadow:-4px 0 20px rgba(0,0,0,0.5);
+                z-index:9999;padding:0;'>
+        <div style='padding:24px;border-bottom:1px solid #334155;'>
+            <h2 style='margin:0;color:#ffffff;font-size:20px;'>🤖 AI Assistant</h2>
+            <p style='color:#94a3b8;font-size:13px;margin:8px 0 0 0;'>
+                Ask questions about your business data
+            </p>
         </div>
-        <p style='color:#64748b;font-size:13px;margin-bottom:16px;'>
-            Ask questions about your business data and get instant insights!
-        </p>
     </div>
     """, unsafe_allow_html=True)
     
-    # Close button
-    if st.button("✕ Close", key="close_chat", type="secondary"):
-        st.session_state.chat_open = False
-        st.rerun()
+    # Use container to position content correctly
+    with st.container():
+        col1, col2 = st.columns([3, 1])
+        with col2:
+            if st.button("✕ Close", key="close_chat", use_container_width=True):
+                st.session_state.chat_open = False
+                st.rerun()
     
-    st.markdown("---")
+    st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
+    
+    # Chat history container with scrolling
+    st.markdown("<div style='max-height:calc(100vh - 250px);overflow-y:auto;padding:0 12px;'>", unsafe_allow_html=True)
     
     # Display chat history
     for i, message in enumerate(st.session_state.chat_history):
         if message["role"] == "user":
             st.markdown(f"""
-            <div style='background:#e0e7ff;padding:12px;border-radius:8px;margin-bottom:12px;'>
-                <strong style='color:#3730a3;'>You:</strong>
-                <p style='margin:6px 0 0 0;color:#1e1b4b;font-size:14px;'>{message["content"]}</p>
+            <div style='background:#3b82f6;padding:12px 16px;border-radius:12px;margin-bottom:12px;'>
+                <strong style='color:#ffffff;font-size:12px;'>You</strong>
+                <p style='margin:6px 0 0 0;color:#ffffff;font-size:14px;line-height:1.5;'>{message["content"]}</p>
             </div>
             """, unsafe_allow_html=True)
         else:
             st.markdown(f"""
-            <div style='background:#f8fafc;border:1px solid #e5e7eb;padding:12px;border-radius:8px;margin-bottom:12px;'>
-                <strong style='color:#7c3aed;'>🤖 AI:</strong>
-                <p style='margin:6px 0 0 0;color:#374151;font-size:14px;'>{message["content"]}</p>
+            <div style='background:#334155;padding:12px 16px;border-radius:12px;margin-bottom:12px;'>
+                <strong style='color:#a78bfa;font-size:12px;'>🤖 AI Assistant</strong>
+                <p style='margin:6px 0 0 0;color:#e2e8f0;font-size:14px;line-height:1.5;'>{message["content"]}</p>
             </div>
             """, unsafe_allow_html=True)
             
             # Show data table if it's a query result
             if "data_table" in message and message["data_table"] is not None:
-                st.dataframe(message["data_table"], use_container_width=True)
+                st.dataframe(message["data_table"], use_container_width=True, height=200)
     
-    # Chat input at the bottom
-    st.markdown("---")
-    user_message = st.text_input(
-        "💬 Type your question:",
-        placeholder="e.g., 'Show me top 5 products by revenue'",
-        key="chat_input_msg"
-    )
+    st.markdown("</div>", unsafe_allow_html=True)
     
-    if user_message:
+    # Fixed input area at bottom
+    st.markdown("<div style='margin-top:20px;padding-top:16px;border-top:1px solid #334155;'>", unsafe_allow_html=True)
+    
+    # Chat input with send button
+    input_col1, input_col2 = st.columns([4, 1])
+    
+    with input_col1:
+        user_message = st.text_input(
+            "Message",
+            placeholder="Ask a question...",
+            key="chat_input_msg",
+            label_visibility="collapsed"
+        )
+    
+    with input_col2:
+        send_button = st.button("Send ➤", key="send_msg", use_container_width=True, type="primary")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Process message when user presses Enter or clicks Send
+    if user_message and (send_button or user_message):
         # Add user message to history
         st.session_state.chat_history.append({"role": "user", "content": user_message})
         
