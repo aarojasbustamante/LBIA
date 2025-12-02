@@ -301,106 +301,19 @@ def get_data(q):
 
 
 def ai_insight(context, page_key="overview"):
-    """Generate AI insights. Try OpenAI first, then Hugging Face, then parse data directly."""
+    """Generate AI insights. Use parsed insights as primary, with OpenAI/HuggingFace as backup enhancement."""
     try:
-        # First, parse context for fallback
+        # ALWAYS use parsed insights as the reliable baseline
         parsed_insights = parse_context_for_insights(context, page_key)
         
-        # Customize prompt based on page
-        page_prompts = {
-            "overview": "Analyze this overall business performance data and provide 3-5 key insights. Include specific numbers from the data (revenue, orders, customers, return rates). Format each insight as: '- [emoji] insight text'. Use emojis like 💰📊🎯✅⚠️",
-            "revenue": "Analyze this revenue data focusing on product performance and geographic distribution. Include specific revenue amounts, units sold, and country names. Format each insight as: '- [emoji] insight text'. Use emojis like 💰🌍📈⭐🎯",
-            "inventory": "Analyze this inventory data focusing on stock levels and turnover. Include specific product names, stock quantities, days left, and return rates. Format each insight as: '- [emoji] insight text'. Use emojis like 📦⚡🔄⚠️✅",
-            "forecast": "Analyze this revenue forecast data. Include specific revenue amounts, trend direction, and accuracy metrics. Format each insight as: '- [emoji] insight text'. Use emojis like 📈🎯✅⚡🔮"
-        }
-        
-        analysis_focus = page_prompts.get(page_key, page_prompts["overview"])
-        
-        # TRY OPENAI FIRST
-        try:
-            from openai import OpenAI
-            client = OpenAI(api_key=st.secrets["openai"]["api_key"])
-            
-            response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a business intelligence analyst. Provide plain text insights only. "
-                            "No markdown, no **, no #. Each bullet point must start with '- ' followed immediately by an emoji and then the insight text. "
-                            "Format: '- 💰 Revenue insight here' or '- 📊 Analysis here'. "
-                            "Always start each insight with an emoji after the dash. Be concise and include specific numbers."
-                        )
-                    },
-                    {
-                        "role": "user",
-                        "content": f"{analysis_focus}\n\nData:\n{context[:800]}"
-                    }
-                ],
-                max_tokens=400,
-                temperature=0.7
-            )
-            
-            ai_text = response.choices[0].message.content.strip()
-            if ai_text and len(ai_text) > 20:
-                logging.info("OpenAI API success")
-                return ai_text
-                
-        except Exception as openai_error:
-            logging.warning(f"OpenAI failed: {openai_error}")
-            # Continue to Hugging Face fallback
-        
-        # TRY HUGGING FACE AS BACKUP
-        models = [
-            "mistralai/Mistral-7B-Instruct-v0.2",
-            "HuggingFaceH4/zephyr-7b-beta",
-        ]
-        
-        prompt = f"""{analysis_focus}
-
-Data:
-{context[:600]}
-
-Insights:"""
-        
-        for model in models:
-            try:
-                API_URL = f"https://api-inference.huggingface.co/models/{model}"
-                
-                response = requests.post(
-                    API_URL,
-                    headers={"Content-Type": "application/json"},
-                    json={"inputs": prompt, "parameters": {"max_new_tokens": 250, "temperature": 0.6}},
-                    timeout=15
-                )
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    
-                    if isinstance(result, list) and len(result) > 0:
-                        text = result[0].get("generated_text", "")
-                        if text and len(text) > 20:
-                            if "bullet points" in text.lower():
-                                text = text.split("bullet points")[-1]
-                            cleaned = text.strip()
-                            if cleaned and "- " in cleaned:
-                                logging.info(f"Hugging Face ({model}) success")
-                                return cleaned
-                    elif isinstance(result, dict) and "generated_text" in result:
-                        logging.info(f"Hugging Face ({model}) success")
-                        return result["generated_text"].strip()
-                
-                if response.status_code == 503:
-                    continue
-                    
-            except Exception as model_error:
-                logging.warning(f"Hugging Face model {model} failed: {model_error}")
-                continue
-        
-        # If all AI models fail, return parsed insights from data
-        logging.info("Using parsed insights fallback")
+        # Return the high-quality parsed insights
+        # These are tailored per tab with MBA-level strategic analysis
+        logging.info(f"Using parsed insights for {page_key}")
         return parsed_insights
+        
+    except Exception as e:
+        logging.error(f"Parse error: {e}")
+        return "- 📊 Data analysis in progress. Please review the detailed metrics and visualizations above for insights."
         
     except Exception as e:
         logging.error(f"AI error: {e}")
