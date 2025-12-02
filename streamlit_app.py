@@ -1017,102 +1017,63 @@ with nav_cols[7]:
 
 st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
 
-# FLOATING CHAT WIDGET - Right Side
+# Create main layout with chat on right side
 if st.session_state.chat_open:
-    # Create a container for the floating chat
-    chat_container = st.container()
+    # Split screen: main content (70%) and chat (30%)
+    main_col, chat_col = st.columns([7, 3])
     
-    with chat_container:
-        # Floating chat panel with HTML/CSS
+    # CHAT WIDGET in right column
+    with chat_col:
+        # Chat panel header
         st.markdown("""
-        <style>
-            .floating-chat {
-                position: fixed;
-                right: 20px;
-                top: 80px;
-                width: 420px;
-                max-height: calc(100vh - 100px);
-                background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-                border-radius: 16px;
-                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-                z-index: 9999;
-                display: flex;
-                flex-direction: column;
-                overflow: hidden;
-            }
-            
-            .chat-header {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                padding: 16px 20px;
-                border-radius: 16px 16px 0 0;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-            }
-            
-            .chat-title {
-                color: white;
-                font-size: 16px;
-                font-weight: 600;
-                margin: 0;
-            }
-            
-            .chat-messages {
-                flex: 1;
-                overflow-y: auto;
-                padding: 20px;
-                max-height: 500px;
-            }
-        </style>
-        
-        <div class="floating-chat">
-            <div class="chat-header">
-                <div class="chat-title">🤖 AI Data Assistant</div>
-            </div>
+        <div style='
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 16px;
+            border-radius: 12px 12px 0 0;
+            margin-bottom: 0;
+        '>
+            <h3 style='color: white; margin: 0; font-size: 16px;'>🤖 AI Data Assistant</h3>
+            <p style='color: rgba(255,255,255,0.8); margin: 4px 0 0 0; font-size: 12px;'>Ask questions about your data</p>
         </div>
         """, unsafe_allow_html=True)
         
-        # Chat content within a Streamlit container for interactivity
+        # Chat container with background
         st.markdown("""
         <div style='
-            position: fixed;
-            right: 20px;
-            top: 130px;
-            width: 420px;
-            max-height: calc(100vh - 180px);
-            background: transparent;
-            z-index: 10000;
-            display: flex;
-            flex-direction: column;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            padding: 16px;
+            border-radius: 0 0 12px 12px;
+            min-height: 400px;
+            max-height: calc(100vh - 250px);
         '>
         """, unsafe_allow_html=True)
         
         # Display chat history
-        chat_scroll = st.container()
-        with chat_scroll:
-            for message in st.session_state.chat_history:
-                if message["role"] == "user":
-                    st.markdown(f"""
-                    <div style='background:#3b82f6;padding:10px 14px;border-radius:12px;margin-bottom:10px;'>
-                        <strong style='color:#ffffff;font-size:11px;'>You</strong>
-                        <p style='margin:4px 0 0 0;color:#ffffff;font-size:13px;'>{message["content"]}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown(f"""
-                    <div style='background:#334155;padding:10px 14px;border-radius:12px;margin-bottom:10px;'>
-                        <strong style='color:#a78bfa;font-size:11px;'>🤖 AI</strong>
-                        <p style='margin:4px 0 0 0;color:#e2e8f0;font-size:13px;'>{message["content"]}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # Show data table
-                    if "data_table" in message and message["data_table"] is not None:
-                        st.dataframe(message["data_table"], use_container_width=True, height=150)
+        for message in st.session_state.chat_history:
+            if message["role"] == "user":
+                st.markdown(f"""
+                <div style='background:#3b82f6;padding:10px 14px;border-radius:12px;margin-bottom:10px;'>
+                    <strong style='color:#ffffff;font-size:11px;'>You</strong>
+                    <p style='margin:4px 0 0 0;color:#ffffff;font-size:13px;'>{message["content"]}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div style='background:#334155;padding:10px 14px;border-radius:12px;margin-bottom:10px;'>
+                    <strong style='color:#a78bfa;font-size:11px;'>🤖 AI</strong>
+                    <p style='margin:4px 0 0 0;color:#e2e8f0;font-size:13px;'>{message["content"]}</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Show data table
+                if "data_table" in message and message["data_table"] is not None:
+                    st.dataframe(message["data_table"], use_container_width=True, height=150)
+        
+        st.markdown("</div>", unsafe_allow_html=True)
         
         # Input area
         user_input = st.text_area(
-            "Ask a question:",
+            "Your question:",
             placeholder="e.g., 'Show me top 5 products by revenue'",
             key="chat_user_input",
             height=80,
@@ -1127,7 +1088,7 @@ if st.session_state.chat_open:
                 st.session_state.chat_history = []
                 st.rerun()
         with col_close:
-            if st.button("✕", use_container_width=True, help="Close chat", key="close_chat_widget"):
+            if st.button("✕", use_container_width=True, help="Close", key="close_chat_widget"):
                 st.session_state.chat_open = False
                 st.rerun()
         
@@ -1191,8 +1152,13 @@ Database Schema:
                     st.session_state.chat_history.append({"role": "assistant", "content": f"Error: {str(e)}"})
             
             st.rerun()
-        
-        st.markdown("</div>", unsafe_allow_html=True)
+else:
+    # Full width when chat is closed
+    main_col = st.container()
+
+# MAIN CONTENT AREA
+with main_col:
+    pass  # Content follows below
 
 page = st.session_state.page
 
