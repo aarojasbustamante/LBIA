@@ -691,52 +691,30 @@ def render_ai(page_key, description, context):
 
     resp_key = f"resp_{page_key}"
     if resp_key in st.session_state:
-        # Get insights text
         insights_text = st.session_state[resp_key]
-        
-        # Split into individual insights (newline separated)
         all_lines = [line.strip() for line in insights_text.split('\n') if line.strip()]
         
         if all_lines:
-            # Build HTML for ALL insights as cards
-            cards_html = ""
+            # Build complete HTML
+            full_html = "<div style='margin-top:16px;'>"
             
             for line in all_lines:
-                # Simple approach: split on first space after emoji
-                # Format: "� Strong Performance: ..."
                 parts = line.split(' ', 1)
+                emoji = parts[0] if len(parts) >= 1 else "📊"
+                text = parts[1] if len(parts) == 2 else (parts[0] if len(parts) == 1 else "")
                 
-                if len(parts) == 2:
-                    emoji = parts[0]  # First part (emoji)
-                    text = parts[1]   # Rest (text)
-                elif len(parts) == 1:
-                    emoji = "📊"
-                    text = parts[0]
-                else:
+                if not text:
                     continue
                 
-                # Build card HTML
-                cards_html += f"""
-                <div style='
-                    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-                    border-left: 4px solid #3b82f6;
-                    padding: 12px 16px;
-                    margin-bottom: 12px;
-                    border-radius: 8px;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-                    display: flex;
-                    gap: 12px;
-                    align-items: flex-start;
-                '>
-                    <div style='font-size: 24px; line-height: 1; flex-shrink: 0; margin-top: 2px;'>{emoji}</div>
-                    <div style='color: #000000 !important; font-size: 14px; line-height: 1.6; flex: 1;'>{text}</div>
-                </div>
-                """
+                import html as htmllib
+                text = htmllib.escape(text)
+                
+                full_html += f"""<div style='background:linear-gradient(135deg,#f8fafc 0%,#f1f5f9 100%);border-left:4px solid #3b82f6;padding:12px 16px;margin-bottom:12px;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.05);display:flex;gap:12px;align-items:flex-start;'><div style='font-size:24px;line-height:1;flex-shrink:0;margin-top:2px;'>{emoji}</div><div style='color:#000000 !important;font-size:14px;line-height:1.6;flex:1;'>{text}</div></div>"""
             
-            # Render all cards at once
-            st.markdown(f"<div style='margin-top:16px;'>{cards_html}</div>", unsafe_allow_html=True)
+            full_html += "</div>"
+            st.markdown(full_html, unsafe_allow_html=True)
         else:
-            st.markdown("<div style='color: #64748b; font-size: 14px; margin-top: 12px;'>No insights available.</div>", unsafe_allow_html=True)
+            st.markdown("<div style='color:#64748b;font-size:14px;margin-top:12px;'>No insights available.</div>", unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
