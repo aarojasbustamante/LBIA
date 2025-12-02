@@ -770,19 +770,22 @@ def render_ai(page_key, description, context):
         # Format the insights with enhanced visual structure
         insights_text = st.session_state[resp_key]
         
-        # Split into individual insights - only extract bullet points
+        # Split into individual insights - extract bullet points or emoji-starting lines
         all_lines = insights_text.split('\n')
         insights_list = []
         
         for line in all_lines:
             line = line.strip()
-            # Only include lines that start with '-' (bullet points)
+            # Include lines that start with '-' OR start with an emoji (non-ASCII character)
             if line.startswith('-'):
                 insights_list.append(line)
+            elif line and len(line) > 0 and ord(line[0]) > 127:
+                # Line starts with emoji (likely an insight without dash)
+                insights_list.append('- ' + line)  # Add dash for consistency
         
-        if insights_list:
-            # Create visual cards for each insight
-            formatted_html = "<div style='margin-top:16px;'>"
+        if insights_list and len(insights_list) > 0:
+            # Create visual cards for each insight wrapped in container with black text
+            formatted_html = "<div style='margin-top:16px; color: #000000 !important;'>"
             
             for insight in insights_list:
                 # Remove the leading dash
