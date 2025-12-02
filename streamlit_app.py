@@ -1096,7 +1096,7 @@ Database Schema:
         st.rerun()
 
 # Navigation bar
-nav_cols = st.columns([2.5, 1, 1, 1, 1, 1, 1.5, 1])
+nav_cols = st.columns([2.5, 1, 1, 1, 1, 1, 1, 0.5])
 
 with nav_cols[0]:
     # logo + brand
@@ -1132,6 +1132,13 @@ with nav_cols[4]:
 with nav_cols[5]:
     if st.button("About"):
         st.session_state.page = "About"
+
+with nav_cols[7]:
+    st.markdown("""
+    <div style='text-align:right;color:#94a3b8;font-size:13px;margin-top:8px;'>
+        👈 Open sidebar for AI Chat
+    </div>
+    """, unsafe_allow_html=True)
 
 st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
 
