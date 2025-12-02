@@ -1095,23 +1095,15 @@ if page == "Overview":
                         logging.error(f"Upload error: {e}")
 
     # NATURAL LANGUAGE QUERY INTERFACE
-    st.markdown("""
-    <div style='background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
-                border-radius:12px;padding:24px;margin:24px 0;'>
-        <div style='display:flex;align-items:center;gap:12px;margin-bottom:12px;'>
-            <span style='font-size:28px;'>🤖</span>
-            <h3 style='margin:0;color:white;'>Ask Your Data Anything</h3>
-        </div>
-        <p style='margin:0;color:rgba(255,255,255,0.9);font-size:14px;'>
-            Use natural language to query your business data - powered by AI
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("---")
+    st.markdown("### 🤖 Ask Your Data Anything")
+    st.markdown("Use natural language to query your business data - powered by AI")
     
     user_query = st.text_input(
-        "💬 Ask a question about your business",
+        "Type your question here:",
         placeholder="e.g., 'Which products are losing money?' or 'Show me top customers in Germany'",
-        key="nl_query"
+        key="nl_query",
+        help="Ask any question about your business data and AI will convert it to SQL and show results"
     )
     
     if user_query:
