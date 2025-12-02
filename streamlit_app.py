@@ -813,7 +813,7 @@ def render_ai(page_key, description, context):
                         margin-top: 2px;
                     '>{emoji}</div>
                     <div style='
-                        color: #000000;
+                        color: #000000 !important;
                         font-size: 14px;
                         line-height: 1.6;
                         flex: 1;
