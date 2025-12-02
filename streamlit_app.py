@@ -9,6 +9,7 @@ import plotly.graph_objects as go
 import mysql.connector
 import requests
 import logging
+from openai import OpenAI
 
 # Logging
 logging.basicConfig(level=logging.INFO)
@@ -315,23 +316,53 @@ def get_data(q):
 
 
 def ai_insight(context, page_key="overview"):
-    """Generate AI insights. Use parsed insights as primary, with OpenAI/HuggingFace as backup enhancement."""
+    """Generate AI insights using OpenAI when available, with parsed insights as fallback."""
     try:
-        # ALWAYS use parsed insights as the reliable baseline
-        parsed_insights = parse_context_for_insights(context, page_key)
+        # Try OpenAI first if API key is configured
+        if "openai" in st.secrets and "api_key" in st.secrets["openai"]:
+            try:
+                client = OpenAI(api_key=st.secrets["openai"]["api_key"])
+                
+                # Create a focused prompt based on the page
+                prompt = f"""You are a business analyst for an e-commerce company. Analyze this data and provide exactly 4 strategic insights as bullet points. Keep each insight concise (1-2 sentences).
+
+Context: {context}
+
+Provide insights focused on: {"overall business performance and key metrics" if page_key == "overview" else "revenue drivers and product performance" if page_key == "revenue" else "inventory management and stock optimization" if page_key == "inventory" else "sales forecasting and trends"}
+
+Format each insight as:
+- 📊 [Your insight]
+- 💡 [Your insight]
+- 🎯 [Your insight]
+- 🔍 [Your insight]"""
+
+                response = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": "You are a business intelligence analyst providing concise, actionable insights."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    max_tokens=400,
+                    temperature=0.7
+                )
+                
+                ai_insights = response.choices[0].message.content.strip()
+                if ai_insights:
+                    logging.info(f"Using OpenAI insights for {page_key}")
+                    return ai_insights
+                    
+            except Exception as e:
+                logging.error(f"OpenAI error: {e}")
+                # Fall through to parsed insights
         
-        # Return the high-quality parsed insights
-        # These are tailored per tab with MBA-level strategic analysis
+        # Use parsed insights as fallback (or if no OpenAI key)
+        parsed_insights = parse_context_for_insights(context, page_key)
         logging.info(f"Using parsed insights for {page_key}")
         return parsed_insights
         
     except Exception as e:
-        logging.error(f"Parse error: {e}")
+        logging.error(f"AI insight error: {e}")
         return "- 📊 Data analysis in progress. Please review the detailed metrics and visualizations above for insights."
-        
-    except Exception as e:
-        logging.error(f"AI error: {e}")
-        return parse_context_for_insights(context, page_key)
 
 
 def parse_context_for_insights(context, page_key):
