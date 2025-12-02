@@ -365,6 +365,160 @@ Format each insight as:
         return "- 📊 Data analysis in progress. Please review the detailed metrics and visualizations above for insights."
 
 
+def detect_anomalies(rev, orders, return_rate, products):
+    """Detect business anomalies and generate alerts."""
+    alerts = []
+    
+    try:
+        # Get historical comparison data
+        last_month_rev = safe_value(get_data("""
+            SELECT SUM(ti.line_total)
+            FROM transaction_items ti
+            JOIN transactions t ON ti.transaction_id = t.transaction_id
+            WHERE ti.is_return = 0
+            AND t.invoice_date >= DATE_SUB(CURDATE(), INTERVAL 2 MONTH)
+            AND t.invoice_date < DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
+        """))
+        
+        current_month_rev = safe_value(get_data("""
+            SELECT SUM(ti.line_total)
+            FROM transaction_items ti
+            JOIN transactions t ON ti.transaction_id = t.transaction_id
+            WHERE ti.is_return = 0
+            AND t.invoice_date >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
+        """))
+        
+        # Revenue drop detection
+        if last_month_rev > 0 and current_month_rev > 0:
+            revenue_change = ((current_month_rev - last_month_rev) / last_month_rev) * 100
+            if revenue_change < -20:
+                alerts.append({
+                    "level": "critical",
+                    "icon": "🚨",
+                    "title": "Significant Revenue Drop",
+                    "message": f"Revenue down {abs(revenue_change):.1f}% vs last month. Immediate investigation recommended."
+                })
+            elif revenue_change > 30:
+                alerts.append({
+                    "level": "success",
+                    "icon": "🎉",
+                    "title": "Revenue Surge",
+                    "message": f"Revenue up {revenue_change:.1f}% vs last month. Excellent performance!"
+                })
+        
+        # High return rate alert
+        if return_rate > 10:
+            alerts.append({
+                "level": "warning",
+                "icon": "⚠️",
+                "title": "High Return Rate Detected",
+                "message": f"Return rate at {return_rate:.1f}% (threshold: 10%). Possible quality issues or customer dissatisfaction."
+            })
+        elif return_rate > 15:
+            alerts.append({
+                "level": "critical",
+                "icon": "🚨",
+                "title": "Critical Return Rate",
+                "message": f"Return rate at {return_rate:.1f}% - urgent action required. Check product quality and customer feedback."
+            })
+        
+        # Low order volume alert
+        recent_orders = int(safe_value(get_data("""
+            SELECT COUNT(*)
+            FROM transactions
+            WHERE invoice_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        """)))
+        
+        if recent_orders < 50:
+            alerts.append({
+                "level": "warning",
+                "icon": "📉",
+                "title": "Low Order Volume",
+                "message": f"Only {recent_orders} orders in the last 7 days. Consider promotional campaigns."
+            })
+        
+        # Stock-out risk for top products
+        stockout_products = get_data("""
+            SELECT p.description, COUNT(ti.item_id) as sales_count
+            FROM transaction_items ti
+            JOIN products p ON ti.product_id = p.product_id
+            JOIN transactions t ON ti.transaction_id = t.transaction_id
+            WHERE ti.is_return = 0
+            AND t.invoice_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+            GROUP BY p.product_id, p.description
+            HAVING sales_count > 100
+            LIMIT 3
+        """)
+        
+        if stockout_products is not None and not stockout_products.empty:
+            top_products = ", ".join(stockout_products['description'].head(3).tolist())
+            alerts.append({
+                "level": "info",
+                "icon": "📦",
+                "title": "High-Velocity Products",
+                "message": f"Monitor inventory for: {top_products}. These are selling fast!"
+            })
+        
+        # Fraud detection - unusual large orders
+        large_orders = get_data("""
+            SELECT COUNT(*) as count
+            FROM transactions
+            WHERE total_amount > 10000
+            AND invoice_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        """)
+        
+        if large_orders is not None and not large_orders.empty:
+            large_count = int(safe_value(large_orders[["count"]]))
+            if large_count > 5:
+                alerts.append({
+                    "level": "warning",
+                    "icon": "🔍",
+                    "title": "Unusual Large Orders",
+                    "message": f"{large_count} orders >£10,000 in last 7 days. Verify for potential fraud."
+                })
+        
+    except Exception as e:
+        logging.error(f"Anomaly detection error: {e}")
+    
+    return alerts
+
+
+def predict_customer_churn():
+    """Identify customers at risk of churning based on recent activity."""
+    try:
+        churn_risk_customers = get_data("""
+            SELECT 
+                c.customer_id,
+                c.country,
+                COUNT(DISTINCT t.transaction_id) as total_orders,
+                SUM(ti.line_total) as total_spent,
+                MAX(t.invoice_date) as last_order_date,
+                DATEDIFF(CURDATE(), MAX(t.invoice_date)) as days_since_last_order,
+                AVG(t.total_amount) as avg_order_value,
+                CASE 
+                    WHEN DATEDIFF(CURDATE(), MAX(t.invoice_date)) > 180 THEN 'High Risk'
+                    WHEN DATEDIFF(CURDATE(), MAX(t.invoice_date)) > 90 THEN 'Medium Risk'
+                    ELSE 'Low Risk'
+                END as churn_risk
+            FROM customers c
+            JOIN transactions t ON c.customer_id = t.customer_id
+            JOIN transaction_items ti ON t.transaction_id = ti.transaction_id
+            WHERE ti.is_return = 0
+            AND c.customer_id != 0
+            GROUP BY c.customer_id, c.country
+            HAVING total_orders >= 3
+            AND days_since_last_order > 90
+            ORDER BY total_spent DESC, days_since_last_order DESC
+            LIMIT 20
+        """)
+        
+        return churn_risk_customers
+        
+    except Exception as e:
+        logging.error(f"Churn prediction error: {e}")
+        return None
+
+
 def parse_context_for_insights(context, page_key):
     """Parse the context data and generate meaningful business insights."""
     try:
@@ -940,6 +1094,96 @@ if page == "Overview":
                         st.error(f"Error processing file: {str(e)}")
                         logging.error(f"Upload error: {e}")
 
+    # NATURAL LANGUAGE QUERY INTERFACE
+    st.markdown("""
+    <div style='background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+                border-radius:12px;padding:24px;margin:24px 0;'>
+        <div style='display:flex;align-items:center;gap:12px;margin-bottom:12px;'>
+            <span style='font-size:28px;'>🤖</span>
+            <h3 style='margin:0;color:white;'>Ask Your Data Anything</h3>
+        </div>
+        <p style='margin:0;color:rgba(255,255,255,0.9);font-size:14px;'>
+            Use natural language to query your business data - powered by AI
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    user_query = st.text_input(
+        "💬 Ask a question about your business",
+        placeholder="e.g., 'Which products are losing money?' or 'Show me top customers in Germany'",
+        key="nl_query"
+    )
+    
+    if user_query:
+        with st.spinner("🧠 AI is analyzing your question..."):
+            try:
+                # Use OpenAI to convert natural language to SQL
+                if "openai" in st.secrets and "api_key" in st.secrets["openai"]:
+                    client = OpenAI(api_key=st.secrets["openai"]["api_key"])
+                    
+                    schema_context = """
+Database Schema:
+- transactions: transaction_id, invoice_no, customer_id, invoice_date, total_amount
+- transaction_items: item_id, transaction_id, product_id, quantity, unit_price, is_return, line_total
+- products: product_id, stock_code, description
+- customers: customer_id, country
+
+Common queries:
+- Revenue: SELECT SUM(line_total) FROM transaction_items WHERE is_return=0
+- Top products: JOIN transaction_items with products, GROUP BY product
+- Geographic analysis: JOIN transactions with customers
+"""
+                    
+                    response = client.chat.completions.create(
+                        model="gpt-3.5-turbo",
+                        messages=[
+                            {"role": "system", "content": f"You are a SQL expert. Convert natural language questions to MySQL queries. {schema_context}\n\nReturn ONLY the SQL query, no explanation."},
+                            {"role": "user", "content": user_query}
+                        ],
+                        max_tokens=200,
+                        temperature=0.3
+                    )
+                    
+                    sql_query = response.choices[0].message.content.strip()
+                    # Clean up the SQL (remove markdown code blocks if present)
+                    sql_query = sql_query.replace("```sql", "").replace("```", "").strip()
+                    
+                    st.code(sql_query, language="sql")
+                    
+                    # Execute the query
+                    try:
+                        result_df = get_data(sql_query)
+                        if result_df is not None and not result_df.empty:
+                            st.success(f"✅ Found {len(result_df)} results")
+                            st.dataframe(result_df, use_container_width=True)
+                            
+                            # AI explanation of results
+                            if len(result_df) > 0:
+                                summary_response = client.chat.completions.create(
+                                    model="gpt-3.5-turbo",
+                                    messages=[
+                                        {"role": "system", "content": "You are a business analyst. Provide a brief 2-sentence insight about this data."},
+                                        {"role": "user", "content": f"Question: {user_query}\n\nResults:\n{result_df.head(10).to_string()}"}
+                                    ],
+                                    max_tokens=150,
+                                    temperature=0.7
+                                )
+                                insight = summary_response.choices[0].message.content.strip()
+                                st.info(f"💡 **Insight:** {insight}")
+                        else:
+                            st.warning("No results found for this query.")
+                    except Exception as e:
+                        st.error(f"Error executing query: {str(e)}")
+                        logging.error(f"Query execution error: {e}")
+                else:
+                    st.warning("⚠️ OpenAI API key not configured. Add it to Streamlit secrets to use this feature.")
+                    
+            except Exception as e:
+                st.error(f"Error processing your question: {str(e)}")
+                logging.error(f"NL Query error: {e}")
+    
+    st.markdown("---")
+
     # Metrics
     rev = safe_value(get_data("SELECT SUM(line_total) FROM transaction_items WHERE is_return=0"))
     orders = int(safe_value(get_data("SELECT COUNT(*) FROM transactions")))
@@ -979,6 +1223,47 @@ if page == "Overview":
     e, f, _, _ = st.columns(4)
     e.metric("Avg Order Value", f"£{(rev / orders if orders > 0 else 0):,.0f}")
     f.metric("Return Rate", f"{return_rate:.1f}%")
+
+    # SMART ANOMALY ALERTS
+    st.markdown("<div style='margin-top:24px;'></div>", unsafe_allow_html=True)
+    alerts = detect_anomalies(rev, orders, return_rate, products)
+    
+    if alerts:
+        st.markdown("### 🎯 Smart Alerts")
+        for alert in alerts:
+            if alert["level"] == "critical":
+                bg_color = "#fee2e2"
+                border_color = "#dc2626"
+                text_color = "#991b1b"
+            elif alert["level"] == "warning":
+                bg_color = "#fef3c7"
+                border_color = "#f59e0b"
+                text_color = "#92400e"
+            elif alert["level"] == "success":
+                bg_color = "#d1fae5"
+                border_color = "#10b981"
+                text_color = "#065f46"
+            else:  # info
+                bg_color = "#dbeafe"
+                border_color = "#3b82f6"
+                text_color = "#1e40af"
+            
+            st.markdown(f"""
+            <div style='background:{bg_color};border-left:4px solid {border_color};
+                        padding:16px;border-radius:8px;margin-bottom:12px;'>
+                <div style='display:flex;align-items:start;gap:12px;'>
+                    <span style='font-size:24px;'>{alert["icon"]}</span>
+                    <div style='flex:1;'>
+                        <h4 style='margin:0 0 8px 0;color:{text_color};font-size:15px;font-weight:600;'>
+                            {alert["title"]}
+                        </h4>
+                        <p style='margin:0;color:{text_color};font-size:14px;line-height:1.5;'>
+                            {alert["message"]}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
     st.markdown("""
 The overview gives you a quick read on overall health - revenue, orders, product breadth, and customer base.
@@ -1069,6 +1354,108 @@ elif page == "Revenue":
         f"Top 5 Countries by Revenue: {countries_text}."
     )
     render_ai("revenue", "AI commentary on your revenue distribution.", revenue_summary)
+
+    # CUSTOMER CHURN PREDICTION
+    st.markdown("### 🎯 Customer Retention Intelligence")
+    st.markdown("""
+    <div style='background:#fef3c7;border-left:4px solid #f59e0b;padding:16px;
+                border-radius:8px;margin-bottom:16px;'>
+        <p style='margin:0;color:#92400e;font-size:14px;'>
+            <strong>AI-Powered Churn Prediction:</strong> Identifying high-value customers 
+            at risk of churning based on purchase patterns and recency.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    churn_customers = predict_customer_churn()
+    
+    if churn_customers is not None and not churn_customers.empty:
+        # Summary metrics
+        col1, col2, col3 = st.columns(3)
+        high_risk = len(churn_customers[churn_customers['churn_risk'] == 'High Risk'])
+        medium_risk = len(churn_customers[churn_customers['churn_risk'] == 'Medium Risk'])
+        total_at_risk_value = churn_customers['total_spent'].sum()
+        
+        col1.metric("🚨 High Risk Customers", high_risk, help="Not ordered in 180+ days")
+        col2.metric("⚠️ Medium Risk Customers", medium_risk, help="Not ordered in 90-180 days")
+        col3.metric("💰 At-Risk Revenue", f"£{total_at_risk_value:,.0f}", help="Total lifetime value at risk")
+        
+        # Display churn risk customers
+        st.markdown("#### Top At-Risk Customers")
+        
+        # Format the dataframe for display
+        display_churn = churn_customers.copy()
+        display_churn['total_spent'] = display_churn['total_spent'].apply(lambda x: f"£{x:,.2f}")
+        display_churn['avg_order_value'] = display_churn['avg_order_value'].apply(lambda x: f"£{x:,.2f}")
+        display_churn['total_orders'] = display_churn['total_orders'].apply(lambda x: f"{int(x):,}")
+        
+        # Color code by risk level
+        def highlight_risk(row):
+            if row['churn_risk'] == 'High Risk':
+                return ['background-color: #fee2e2'] * len(row)
+            elif row['churn_risk'] == 'Medium Risk':
+                return ['background-color: #fef3c7'] * len(row)
+            else:
+                return [''] * len(row)
+        
+        styled_df = display_churn.style.apply(highlight_risk, axis=1)
+        
+        st.dataframe(
+            display_churn,
+            use_container_width=True,
+            column_config={
+                "customer_id": "Customer ID",
+                "country": "Country",
+                "total_orders": "Total Orders",
+                "total_spent": "Lifetime Value",
+                "last_order_date": "Last Order",
+                "days_since_last_order": "Days Inactive",
+                "avg_order_value": "Avg Order",
+                "churn_risk": st.column_config.TextColumn(
+                    "Risk Level",
+                    help="High Risk: 180+ days | Medium Risk: 90-180 days"
+                )
+            }
+        )
+        
+        # AI-powered retention strategies
+        if "openai" in st.secrets and "api_key" in st.secrets["openai"]:
+            if st.button("🤖 Generate Retention Strategies", key="churn_ai"):
+                with st.spinner("AI is creating personalized retention strategies..."):
+                    try:
+                        client = OpenAI(api_key=st.secrets["openai"]["api_key"])
+                        
+                        top_3_customers = churn_customers.head(3).to_dict('records')
+                        customer_summary = "\n".join([
+                            f"- Customer {c['customer_id']} ({c['country']}): £{c['total_spent']:,.0f} lifetime value, {c['days_since_last_order']} days inactive, {c['total_orders']} past orders"
+                            for c in top_3_customers
+                        ])
+                        
+                        response = client.chat.completions.create(
+                            model="gpt-3.5-turbo",
+                            messages=[
+                                {"role": "system", "content": "You are a customer retention specialist. Provide 3 specific, actionable strategies to re-engage churning customers."},
+                                {"role": "user", "content": f"Top at-risk customers:\n{customer_summary}\n\nSuggest 3 personalized retention strategies."}
+                            ],
+                            max_tokens=300,
+                            temperature=0.7
+                        )
+                        
+                        strategies = response.choices[0].message.content.strip()
+                        
+                        st.markdown("""
+                        <div style='background:#d1fae5;border-left:4px solid #10b981;
+                                    padding:16px;border-radius:8px;margin-top:16px;'>
+                            <h4 style='margin:0 0 12px 0;color:#065f46;'>💡 AI-Recommended Retention Strategies</h4>
+                        """, unsafe_allow_html=True)
+                        st.markdown(f"<p style='margin:0;color:#065f46;white-space:pre-wrap;'>{strategies}</p></div>", unsafe_allow_html=True)
+                        
+                    except Exception as e:
+                        st.error(f"Error generating strategies: {str(e)}")
+    else:
+        st.info("No at-risk customers identified. Great retention!")
+    
+    st.markdown("---")
 
     st.markdown("""
 This page shows where money is actually coming from - which products drive the most revenue and
