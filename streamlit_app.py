@@ -695,12 +695,12 @@ def render_ai(page_key, description, context):
         all_lines = [line.strip() for line in insights_text.split('\n') if line.strip()]
         
         if all_lines:
-            # Build complete HTML
-            full_html = "<div style='margin-top:16px;'>"
+            # Build ONE box with all insights as bullet points
+            insights_html = "<div style='background:#ffffff;border-radius:8px;padding:16px;margin-top:16px;border:1px solid #e2e8f0;'>"
             
             for line in all_lines:
                 parts = line.split(' ', 1)
-                emoji = parts[0] if len(parts) >= 1 else "📊"
+                emoji = parts[0] if len(parts) >= 1 else "•"
                 text = parts[1] if len(parts) == 2 else (parts[0] if len(parts) == 1 else "")
                 
                 if not text:
@@ -709,10 +709,11 @@ def render_ai(page_key, description, context):
                 import html as htmllib
                 text = htmllib.escape(text)
                 
-                full_html += f"""<div style='background:linear-gradient(135deg,#f8fafc 0%,#f1f5f9 100%);border-left:4px solid #3b82f6;padding:12px 16px;margin-bottom:12px;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.05);display:flex;gap:12px;align-items:flex-start;'><div style='font-size:24px;line-height:1;flex-shrink:0;margin-top:2px;'>{emoji}</div><div style='color:#000000 !important;font-size:14px;line-height:1.6;flex:1;'>{text}</div></div>"""
+                # Simple bullet point style
+                insights_html += f"<div style='color:#000000;font-size:14px;line-height:1.8;margin-bottom:8px;'>{emoji} {text}</div>"
             
-            full_html += "</div>"
-            st.markdown(full_html, unsafe_allow_html=True)
+            insights_html += "</div>"
+            st.markdown(insights_html, unsafe_allow_html=True)
         else:
             st.markdown("<div style='color:#64748b;font-size:14px;margin-top:12px;'>No insights available.</div>", unsafe_allow_html=True)
 
