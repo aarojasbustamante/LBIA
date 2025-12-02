@@ -137,6 +137,20 @@ st.markdown("""
     .ai-response p {color: #0f172a !important;}
     .ai-response div {color: #0f172a !important;}
 
+    /* Metrics - Force white text on dark background */
+    [data-testid="stMetricValue"] {
+        color: #ffffff !important;
+    }
+    [data-testid="stMetricLabel"] {
+        color: #ffffff !important;
+    }
+    [data-testid="stMetric"] {
+        color: #ffffff !important;
+    }
+    [data-testid="stMetric"] * {
+        color: #ffffff !important;
+    }
+
     /* Run Analysis – same style but scoped inside AI box if you want to tweak further later */
     .ai-box .stButton > button {
         border-radius: 8px;
