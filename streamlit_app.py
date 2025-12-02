@@ -7,7 +7,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import mysql.connector
-from openai import OpenAI
+import requests
 import logging
 
 # Logging
@@ -281,16 +281,10 @@ def get_data(q):
 
 
 def ai_insight(context, page_key="overview"):
-    """Generate AI insights. If models fail, parse context data directly."""
+    """Generate AI insights. Try OpenAI first, then Hugging Face, then parse data directly."""
     try:
-        # First, try to generate insights from actual data
+        # First, parse context for fallback
         parsed_insights = parse_context_for_insights(context, page_key)
-        
-        # Try AI models for enhanced insights
-        models = [
-            "mistralai/Mistral-7B-Instruct-v0.2",
-            "HuggingFaceH4/zephyr-7b-beta",
-        ]
         
         # Customize prompt based on page
         page_prompts = {
@@ -301,6 +295,46 @@ def ai_insight(context, page_key="overview"):
         }
         
         analysis_focus = page_prompts.get(page_key, page_prompts["overview"])
+        
+        # TRY OPENAI FIRST
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=st.secrets["openai"]["api_key"])
+            
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a business intelligence analyst. Provide plain text insights only. "
+                            "No markdown, no **, no #. Use bullet points starting with '- '. "
+                            "Include specific numbers and emojis for visual appeal. Be concise and actionable."
+                        )
+                    },
+                    {
+                        "role": "user",
+                        "content": f"{analysis_focus}\n\nData:\n{context[:800]}"
+                    }
+                ],
+                max_tokens=400,
+                temperature=0.7
+            )
+            
+            ai_text = response.choices[0].message.content.strip()
+            if ai_text and len(ai_text) > 20:
+                logging.info("OpenAI API success")
+                return ai_text
+                
+        except Exception as openai_error:
+            logging.warning(f"OpenAI failed: {openai_error}")
+            # Continue to Hugging Face fallback
+        
+        # TRY HUGGING FACE AS BACKUP
+        models = [
+            "mistralai/Mistral-7B-Instruct-v0.2",
+            "HuggingFaceH4/zephyr-7b-beta",
+        ]
         
         prompt = f"""{analysis_focus}
 
@@ -317,35 +351,34 @@ Insights:"""
                     API_URL,
                     headers={"Content-Type": "application/json"},
                     json={"inputs": prompt, "parameters": {"max_new_tokens": 250, "temperature": 0.6}},
-                    timeout=20  # Shorter timeout
+                    timeout=15
                 )
                 
                 if response.status_code == 200:
                     result = response.json()
                     
-                    # Handle different response formats
                     if isinstance(result, list) and len(result) > 0:
                         text = result[0].get("generated_text", "")
-                        # Clean up the response
                         if text and len(text) > 20:
-                            # Remove the prompt from the response if included
                             if "bullet points" in text.lower():
                                 text = text.split("bullet points")[-1]
                             cleaned = text.strip()
                             if cleaned and "- " in cleaned:
+                                logging.info(f"Hugging Face ({model}) success")
                                 return cleaned
                     elif isinstance(result, dict) and "generated_text" in result:
+                        logging.info(f"Hugging Face ({model}) success")
                         return result["generated_text"].strip()
                 
-                # If model is loading, try next one
                 if response.status_code == 503:
                     continue
                     
             except Exception as model_error:
-                logging.warning(f"Model {model} failed: {model_error}")
+                logging.warning(f"Hugging Face model {model} failed: {model_error}")
                 continue
         
-        # If all models fail, return parsed insights from data
+        # If all AI models fail, return parsed insights from data
+        logging.info("Using parsed insights fallback")
         return parsed_insights
         
     except Exception as e:
