@@ -19,7 +19,7 @@ st.set_page_config(
     page_title="LBIA Dashboard",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # Remove default top padding
@@ -1135,8 +1135,13 @@ with nav_cols[5]:
 
 with nav_cols[7]:
     st.markdown("""
-    <div style='text-align:right;color:#94a3b8;font-size:13px;margin-top:8px;'>
-        👈 Open sidebar for AI Chat
+    <div style='text-align:right;'>
+        <div style='background:linear-gradient(135deg,#667eea,#764ba2);
+                    color:white;padding:8px 16px;border-radius:8px;
+                    font-weight:600;font-size:14px;cursor:pointer;
+                    display:inline-block;box-shadow:0 2px 8px rgba(102,126,234,0.3);'>
+            👈 Click ☰ for AI Chat
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
