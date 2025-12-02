@@ -526,6 +526,144 @@ def detect_anomalies(rev, orders, return_rate, products):
     return alerts
 
 
+def render_chat_widget(section_name):
+    """Render AI chat widget at the end of a section."""
+    if not st.session_state.chat_open:
+        return
+    
+    st.markdown("<div style='height:40px;'></div>", unsafe_allow_html=True)
+    
+    # Chat panel header
+    st.markdown("""
+    <div style='
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 16px;
+        border-radius: 12px 12px 0 0;
+        margin-bottom: 0;
+    '>
+        <h3 style='color: white; margin: 0; font-size: 18px;'>🤖 AI Data Assistant</h3>
+        <p style='color: rgba(255,255,255,0.8); margin: 4px 0 0 0; font-size: 13px;'>Ask questions about your {section} data</p>
+    </div>
+    """.replace("{section}", section_name), unsafe_allow_html=True)
+    
+    # Chat container with background
+    st.markdown("""
+    <div style='
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        padding: 20px;
+        border-radius: 0 0 12px 12px;
+        min-height: 300px;
+    '>
+    """, unsafe_allow_html=True)
+    
+    # Display chat history
+    for message in st.session_state.chat_history:
+        if message["role"] == "user":
+            st.markdown(f"""
+            <div style='background:#3b82f6;padding:12px 16px;border-radius:12px;margin-bottom:12px;max-width:80%;'>
+                <strong style='color:#ffffff;font-size:11px;'>You</strong>
+                <p style='margin:4px 0 0 0;color:#ffffff;font-size:14px;'>{message["content"]}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div style='background:#334155;padding:12px 16px;border-radius:12px;margin-bottom:12px;'>
+                <strong style='color:#a78bfa;font-size:11px;'>🤖 AI Assistant</strong>
+                <p style='margin:4px 0 0 0;color:#e2e8f0;font-size:14px;'>{message["content"]}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Show data table
+            if "data_table" in message and message["data_table"] is not None:
+                st.dataframe(message["data_table"], use_container_width=True, height=200)
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Input area
+    st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
+    
+    user_input = st.text_area(
+        "Your question:",
+        placeholder="e.g., 'Show me top 5 products by revenue' or 'Which customers spent the most?'",
+        key=f"chat_input_{section_name}",
+        height=100,
+        label_visibility="collapsed"
+    )
+    
+    col_send, col_clear, col_close = st.columns([2, 1, 1])
+    with col_send:
+        send_btn = st.button("📤 Send", type="primary", use_container_width=True, key=f"send_{section_name}")
+    with col_clear:
+        if st.button("🗑️ Clear", use_container_width=True, key=f"clear_{section_name}"):
+            st.session_state.chat_history = []
+            st.rerun()
+    with col_close:
+        if st.button("✕ Close", use_container_width=True, key=f"close_{section_name}"):
+            st.session_state.chat_open = False
+            st.rerun()
+    
+    # Process message
+    if send_btn and user_input:
+        st.session_state.chat_history.append({"role": "user", "content": user_input})
+        
+        with st.spinner("🤔 Thinking..."):
+            try:
+                if "openai" in st.secrets and "api_key" in st.secrets["openai"]:
+                    client = OpenAI(api_key=st.secrets["openai"]["api_key"])
+                    
+                    schema_context = """
+Database Schema:
+- transactions: transaction_id, invoice_no, customer_id, invoice_date, total_amount
+- transaction_items: item_id, transaction_id, product_id, quantity, unit_price, is_return, line_total
+- products: product_id, stock_code, description
+- customers: customer_id, country"""
+                    
+                    # Convert to SQL
+                    response = client.chat.completions.create(
+                        model="gpt-3.5-turbo",
+                        messages=[
+                            {"role": "system", "content": f"You are a SQL expert. Convert questions to MySQL queries. {schema_context}\n\nReturn ONLY the SQL query."},
+                            {"role": "user", "content": user_input}
+                        ],
+                        max_tokens=200,
+                        temperature=0.3
+                    )
+                    
+                    sql_query = response.choices[0].message.content.strip().replace("```sql", "").replace("```", "").strip()
+                    
+                    # Execute query
+                    try:
+                        result_df = get_data(sql_query)
+                        if result_df is not None and not result_df.empty:
+                            # Generate natural language response
+                            summary_response = client.chat.completions.create(
+                                model="gpt-3.5-turbo",
+                                messages=[
+                                    {"role": "system", "content": "You are a business analyst. Provide a concise answer with insights."},
+                                    {"role": "user", "content": f"Question: {user_input}\n\nData:\n{result_df.head(10).to_string()}"}
+                                ],
+                                max_tokens=150,
+                                temperature=0.7
+                            )
+                            ai_response = summary_response.choices[0].message.content.strip()
+                            
+                            st.session_state.chat_history.append({
+                                "role": "assistant",
+                                "content": ai_response,
+                                "data_table": result_df.head(10)
+                            })
+                        else:
+                            st.session_state.chat_history.append({"role": "assistant", "content": "No data found for your question."})
+                    except Exception as e:
+                        st.session_state.chat_history.append({"role": "assistant", "content": f"Error executing query: {str(e)}"})
+                else:
+                    st.session_state.chat_history.append({"role": "assistant", "content": "⚠️ OpenAI API key not configured in secrets."})
+            except Exception as e:
+                st.session_state.chat_history.append({"role": "assistant", "content": f"Error: {str(e)}"})
+        
+        st.rerun()
+
+
 def predict_customer_churn():
     """Identify customers at risk of churning based on recent activity."""
     try:
@@ -1013,31 +1151,9 @@ with nav_cols[5]:
 with nav_cols[7]:
     if st.button("🤖 AI Chat", key="ai_chat_btn", type="primary", use_container_width=True):
         st.session_state.chat_open = not st.session_state.get("chat_open", False)
-        st.session_state.scroll_to_chat = True  # Flag to trigger scroll
         st.rerun()
 
 st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
-
-# Scroll to chat if flag is set
-if st.session_state.get("scroll_to_chat", False) and st.session_state.chat_open:
-    st.markdown("""
-    <script>
-        // Wait for page to render, then scroll
-        setTimeout(function() {
-            var chatSection = document.getElementById('ai-chat-section');
-            if (chatSection) {
-                chatSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            } else {
-                // Fallback: scroll to bottom
-                window.scrollTo({
-                    top: document.body.scrollHeight,
-                    behavior: 'smooth'
-                });
-            }
-        }, 100);
-    </script>
-    """, unsafe_allow_html=True)
-    st.session_state.scroll_to_chat = False  # Reset flag
 
 page = st.session_state.page
 
@@ -1278,6 +1394,9 @@ value that might signal pricing or promotion issues.
         ))
         fig.update_layout(height=320, plot_bgcolor="white")
         st.plotly_chart(fig, use_container_width=True)
+    
+    # AI Chat Widget
+    render_chat_widget("Overview")
 
 # -----------------------------
 # REVENUE PAGE
@@ -1517,6 +1636,8 @@ bundle together, or avoid discounting too heavily.
             )
         else:
             st.info("No data available")
+    
+    render_chat_widget("Revenue")
 
 # -----------------------------
 # INVENTORY PAGE
@@ -1764,6 +1885,8 @@ elif page == "Inventory":
     
     else:
         st.warning("No inventory data available.")
+    
+    render_chat_widget("Inventory")
 
 # -----------------------------
 # FORECAST PAGE
@@ -1968,6 +2091,8 @@ elif page == "Forecast":
     
     else:
         st.warning("Insufficient data for forecasting. Need at least 3 months of historical data.")
+    
+    render_chat_widget("Forecast")
 
 # -----------------------------
 # ABOUT PAGE
@@ -2016,142 +2141,6 @@ into decisions using real-time dashboards, forecasting, and AI-generated recomme
         st.image("Marcia.jpeg", width=200)
         st.markdown("<p style='margin-top:10px;margin-bottom:0;'><strong>Marcia Rivera</strong><br/>Co-Founder</p>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
-
-# -----------------------------
-# AI CHAT - BOTTOM OF PAGE
-# -----------------------------
-if st.session_state.chat_open:
-    st.markdown("<div id='ai-chat-section' style='height:40px;'></div>", unsafe_allow_html=True)
-    
-    # Chat panel header
-    st.markdown("""
-    <div style='
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 16px;
-        border-radius: 12px 12px 0 0;
-        margin-bottom: 0;
-    '>
-        <h3 style='color: white; margin: 0; font-size: 18px;'>🤖 AI Data Assistant</h3>
-        <p style='color: rgba(255,255,255,0.8); margin: 4px 0 0 0; font-size: 13px;'>Ask questions about your business data</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Chat container with background
-    st.markdown("""
-    <div style='
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        padding: 20px;
-        border-radius: 0 0 12px 12px;
-        min-height: 300px;
-    '>
-    """, unsafe_allow_html=True)
-    
-    # Display chat history
-    for message in st.session_state.chat_history:
-        if message["role"] == "user":
-            st.markdown(f"""
-            <div style='background:#3b82f6;padding:12px 16px;border-radius:12px;margin-bottom:12px;max-width:80%;'>
-                <strong style='color:#ffffff;font-size:11px;'>You</strong>
-                <p style='margin:4px 0 0 0;color:#ffffff;font-size:14px;'>{message["content"]}</p>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown(f"""
-            <div style='background:#334155;padding:12px 16px;border-radius:12px;margin-bottom:12px;'>
-                <strong style='color:#a78bfa;font-size:11px;'>🤖 AI Assistant</strong>
-                <p style='margin:4px 0 0 0;color:#e2e8f0;font-size:14px;'>{message["content"]}</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Show data table
-            if "data_table" in message and message["data_table"] is not None:
-                st.dataframe(message["data_table"], use_container_width=True, height=200)
-    
-    st.markdown("</div>", unsafe_allow_html=True)
-    
-    # Input area
-    st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
-    
-    user_input = st.text_area(
-        "Your question:",
-        placeholder="e.g., 'Show me top 5 products by revenue' or 'Which customers spent the most?'",
-        key="chat_user_input",
-        height=100,
-        label_visibility="collapsed"
-    )
-    
-    col_send, col_clear, col_close = st.columns([2, 1, 1])
-    with col_send:
-        send_btn = st.button("📤 Send", type="primary", use_container_width=True, key="send_msg")
-    with col_clear:
-        if st.button("🗑️ Clear", use_container_width=True, key="clear_chat"):
-            st.session_state.chat_history = []
-            st.rerun()
-    with col_close:
-        if st.button("✕ Close", use_container_width=True, key="close_chat_widget"):
-            st.session_state.chat_open = False
-            st.rerun()
-    
-    # Process message
-    if send_btn and user_input:
-        st.session_state.chat_history.append({"role": "user", "content": user_input})
-        
-        with st.spinner("🤔 Thinking..."):
-            try:
-                if "openai" in st.secrets and "api_key" in st.secrets["openai"]:
-                    client = OpenAI(api_key=st.secrets["openai"]["api_key"])
-                    
-                    schema_context = """
-Database Schema:
-- transactions: transaction_id, invoice_no, customer_id, invoice_date, total_amount
-- transaction_items: item_id, transaction_id, product_id, quantity, unit_price, is_return, line_total
-- products: product_id, stock_code, description
-- customers: customer_id, country"""
-                    
-                    # Convert to SQL
-                    response = client.chat.completions.create(
-                        model="gpt-3.5-turbo",
-                        messages=[
-                            {"role": "system", "content": f"You are a SQL expert. Convert questions to MySQL queries. {schema_context}\n\nReturn ONLY the SQL query."},
-                            {"role": "user", "content": user_input}
-                        ],
-                        max_tokens=200,
-                        temperature=0.3
-                    )
-                    
-                    sql_query = response.choices[0].message.content.strip().replace("```sql", "").replace("```", "").strip()
-                    
-                    # Execute query
-                    try:
-                        result_df = get_data(sql_query)
-                        if result_df is not None and not result_df.empty:
-                            # Generate natural language response
-                            summary_response = client.chat.completions.create(
-                                model="gpt-3.5-turbo",
-                                messages=[
-                                    {"role": "system", "content": "You are a business analyst. Provide a concise answer with insights."},
-                                    {"role": "user", "content": f"Question: {user_input}\n\nData:\n{result_df.head(10).to_string()}"}
-                                ],
-                                max_tokens=150,
-                                temperature=0.7
-                            )
-                            ai_response = summary_response.choices[0].message.content.strip()
-                            
-                            st.session_state.chat_history.append({
-                                "role": "assistant",
-                                "content": ai_response,
-                                "data_table": result_df.head(10)
-                            })
-                        else:
-                            st.session_state.chat_history.append({"role": "assistant", "content": "No data found for your question."})
-                    except Exception as e:
-                        st.session_state.chat_history.append({"role": "assistant", "content": f"Error executing query: {str(e)}"})
-                else:
-                    st.session_state.chat_history.append({"role": "assistant", "content": "⚠️ OpenAI API key not configured in secrets."})
-            except Exception as e:
-                st.session_state.chat_history.append({"role": "assistant", "content": f"Error: {str(e)}"})
-        
-        st.rerun()
 
 # -----------------------------
 # FOOTER
