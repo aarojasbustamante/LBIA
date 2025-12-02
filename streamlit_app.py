@@ -1013,9 +1013,31 @@ with nav_cols[5]:
 with nav_cols[7]:
     if st.button("🤖 AI Chat", key="ai_chat_btn", type="primary", use_container_width=True):
         st.session_state.chat_open = not st.session_state.get("chat_open", False)
+        st.session_state.scroll_to_chat = True  # Flag to trigger scroll
         st.rerun()
 
 st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
+
+# Scroll to chat if flag is set
+if st.session_state.get("scroll_to_chat", False) and st.session_state.chat_open:
+    st.markdown("""
+    <script>
+        // Wait for page to render, then scroll
+        setTimeout(function() {
+            var chatSection = document.getElementById('ai-chat-section');
+            if (chatSection) {
+                chatSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                // Fallback: scroll to bottom
+                window.scrollTo({
+                    top: document.body.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }
+        }, 100);
+    </script>
+    """, unsafe_allow_html=True)
+    st.session_state.scroll_to_chat = False  # Reset flag
 
 page = st.session_state.page
 
@@ -1999,7 +2021,7 @@ into decisions using real-time dashboards, forecasting, and AI-generated recomme
 # AI CHAT - BOTTOM OF PAGE
 # -----------------------------
 if st.session_state.chat_open:
-    st.markdown("<div style='height:40px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div id='ai-chat-section' style='height:40px;'></div>", unsafe_allow_html=True)
     
     # Chat panel header
     st.markdown("""
