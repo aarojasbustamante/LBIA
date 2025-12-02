@@ -694,7 +694,8 @@ def render_ai(page_key, description, context):
         # Format the insights with enhanced visual structure
         insights_text = st.session_state[resp_key]
         
-        # Split into individual insights - extract bullet points or emoji-starting lines
+        # ALWAYS render as visual cards - no plain text fallback
+        # Split into individual insights
         all_lines = insights_text.split('\n')
         insights_list = []
         
@@ -703,52 +704,37 @@ def render_ai(page_key, description, context):
             if not line:  # Skip empty lines
                 continue
                 
-            # Include lines that start with '-' OR start with an emoji (non-ASCII character > 127)
-            if line.startswith('-'):
-                insights_list.append(line)
-            elif len(line) > 0:
-                # Check if first character is emoji (Unicode > 127)
-                try:
-                    first_char_code = ord(line[0])
-                    if first_char_code > 127:  # Non-ASCII, likely emoji
-                        # Add dash for consistency
-                        insights_list.append('- ' + line)
-                    # Otherwise skip non-emoji, non-dash lines
-                except:
-                    pass
+            # Include ALL non-empty lines
+            # They all start with emojis from parse_context_for_insights
+            insights_list.append(line)
         
         if insights_list and len(insights_list) > 0:
-            # Create visual cards for each insight wrapped in container with black text
-            formatted_html = "<div style='margin-top:16px; color: #000000 !important;'>"
+            # Create visual cards for each insight
+            formatted_html = "<div style='margin-top:16px;'>"
             
-            for insight in insights_list:
-                # Remove the leading dash
-                clean_insight = insight.lstrip('- ').strip()
+            for line in insights_list:
+                # Each line is: "💰 Strong Performance: ..."
+                # Extract emoji and text
+                emoji = "📊"  # Default
+                text = line
                 
-                # Skip empty insights
-                if not clean_insight:
-                    continue
-                
-                # Extract emoji - improved detection
-                emoji = "📊"  # Default emoji if none found
-                text = clean_insight
-                
-                if clean_insight and len(clean_insight) > 0:
-                    # Try to find emoji at the start (could be multi-byte)
+                if len(line) > 0:
+                    # Try to find emoji at start
                     import re
-                    # Match emoji at the start of string
-                    emoji_pattern = re.compile(r'^([\U0001F300-\U0001F9FF\u2600-\u26FF\u2700-\u27BF\U0001F600-\U0001F64F\U0001F680-\U0001F6FF]+)\s*')
-                    match = emoji_pattern.match(clean_insight)
+                    emoji_pattern = re.compile(r'^([\U0001F300-\U0001F9FF\u2600-\u26FF\u2700-\u27BF\U0001F600-\U0001F64F\U0001F680-\U0001F6FF✓✅⚠⚡]+)\s*')
+                    match = emoji_pattern.match(line)
                     
                     if match:
                         emoji = match.group(1)
-                        text = clean_insight[len(match.group(0)):].strip()
+                        text = line[len(match.group(0)):].strip()
                     else:
                         # Fallback: check first character
-                        first_char = clean_insight[0]
-                        if ord(first_char) > 127:  # Non-ASCII character (likely emoji)
-                            emoji = first_char
-                            text = clean_insight[1:].strip()
+                        try:
+                            if ord(line[0]) > 127:
+                                emoji = line[0]
+                                text = line[1:].strip()
+                        except:
+                            pass
                 
                 # Create visual card for each insight
                 formatted_html += f"""
@@ -781,9 +767,8 @@ def render_ai(page_key, description, context):
             formatted_html += "</div>"
             st.markdown(formatted_html, unsafe_allow_html=True)
         else:
-            # Fallback to original display if no bullet points
-            st.markdown(f"<div class='ai-response'>{insights_text}</div>",
-                        unsafe_allow_html=True)
+            # No insights found
+            st.markdown("<div style='color: #64748b; font-size: 14px; margin-top: 12px;'>No insights available. Click 'Run Analysis' to generate.</div>", unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
