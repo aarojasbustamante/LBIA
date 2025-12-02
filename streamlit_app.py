@@ -757,8 +757,64 @@ def render_ai(page_key, description, context):
 
     resp_key = f"resp_{page_key}"
     if resp_key in st.session_state:
-        st.markdown(f"<div class='ai-response'>{st.session_state[resp_key]}</div>",
-                    unsafe_allow_html=True)
+        # Format the insights with enhanced visual structure
+        insights_text = st.session_state[resp_key]
+        
+        # Split into individual insights
+        insights_list = [line.strip() for line in insights_text.split('\n') if line.strip() and line.strip().startswith('-')]
+        
+        if insights_list:
+            # Create visual cards for each insight
+            formatted_html = "<div style='margin-top:16px;'>"
+            
+            for insight in insights_list:
+                # Remove the leading dash
+                clean_insight = insight.lstrip('- ').strip()
+                
+                # Extract emoji if present (first character)
+                emoji = ""
+                text = clean_insight
+                if clean_insight and len(clean_insight) > 0:
+                    first_char = clean_insight[0]
+                    # Check if first character is an emoji (basic check)
+                    if ord(first_char) > 127:
+                        emoji = first_char
+                        text = clean_insight[1:].strip()
+                
+                # Create visual card for each insight
+                formatted_html += f"""
+                <div style='
+                    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+                    border-left: 4px solid #3b82f6;
+                    padding: 12px 16px;
+                    margin-bottom: 12px;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                    display: flex;
+                    gap: 12px;
+                    align-items: flex-start;
+                '>
+                    <div style='
+                        font-size: 24px;
+                        line-height: 1;
+                        flex-shrink: 0;
+                        margin-top: 2px;
+                    '>{emoji}</div>
+                    <div style='
+                        color: #1e293b;
+                        font-size: 14px;
+                        line-height: 1.6;
+                        flex: 1;
+                    '>{text}</div>
+                </div>
+                """
+            
+            formatted_html += "</div>"
+            st.markdown(formatted_html, unsafe_allow_html=True)
+        else:
+            # Fallback to original display if no bullet points
+            st.markdown(f"<div class='ai-response'>{insights_text}</div>",
+                        unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
