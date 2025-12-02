@@ -35,12 +35,23 @@ st.markdown("""
     .stApp {background:#1a1a1a;}
     
     /* White text for dark background elements */
-    body, p, span, h1, h2, h3, h4, h5, h6, label, .stMarkdown {
+    body, p, span, h1, h2, h3, h4, h5, h6, label {
         color: #ffffff !important;
     }
     
-    /* But NOT for elements inside .ai-box (white background containers) */
-    .ai-box, .ai-box * {
+    /* White text for markdown, but NOT inside ai-box */
+    .stMarkdown:not(.ai-box *):not(.ai-box) {
+        color: #ffffff !important;
+    }
+    
+    /* Black text for everything inside .ai-box (highest priority) */
+    .ai-box, 
+    .ai-box *, 
+    .ai-box .stMarkdown,
+    .ai-box .stMarkdown *,
+    .ai-box div,
+    .ai-box p,
+    .ai-box span {
         color: #000000 !important;
     }
     
