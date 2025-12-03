@@ -1198,6 +1198,16 @@ if page == "Overview":
     </div>
     """, unsafe_allow_html=True)
 
+    # REFRESH DATA BUTTON
+    col1, col2, col3 = st.columns([1, 1, 4])
+    with col1:
+        if st.button("🔄 Refresh Data", help="Clear cache and reload all data from database"):
+            get_data.clear()
+            st.success("Cache cleared! Refreshing...")
+            import time
+            time.sleep(1)
+            st.rerun()
+
  # CSV UPLOAD SECTION
     with st.expander("📤 Upload New Data", expanded=False):
         st.markdown("Upload a CSV file with the same format as Online Retail II dataset.")
