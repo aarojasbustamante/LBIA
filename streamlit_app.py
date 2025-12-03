@@ -1198,62 +1198,6 @@ if page == "Overview":
     </div>
     """, unsafe_allow_html=True)
 
-    # REFRESH DATA BUTTON
-    col1, col2, col3 = st.columns([1, 1, 4])
-    with col1:
-        if st.button("🔄 Refresh Data", help="Clear cache and reload all data from database"):
-            get_data.clear()
-            st.success("Cache cleared! Refreshing...")
-            import time
-            time.sleep(1)
-    with col2:
-        if st.button("🗑️ Clear Demo Data", help="Remove all uploaded demo/bakery data", type="secondary"):
-            try:
-                conn = mysql.connector.connect(
-                    host=st.secrets["database"]["host"],
-                    port=st.secrets["database"]["port"],
-                    database=st.secrets["database"]["database"],
-                    user=st.secrets["database"]["user"],
-                    password=st.secrets["database"]["password"]
-                )
-                cursor = conn.cursor()
-                
-                # Delete transaction items first
-                cursor.execute("""
-                    DELETE ti FROM transaction_items ti
-                    JOIN transactions t ON ti.transaction_id = t.transaction_id
-                    WHERE t.invoice_no LIKE 'BK%'
-                """)
-                
-                # Delete transactions
-                cursor.execute("DELETE FROM transactions WHERE invoice_no LIKE 'BK%'")
-                
-                # Delete demo customers
-                cursor.execute("DELETE FROM customers WHERE customer_id BETWEEN 5001 AND 5024")
-                
-                # Delete demo products
-                cursor.execute("""
-                    DELETE FROM products WHERE stock_code IN (
-                        'CROIS001', 'BAGEL002', 'BREAD003', 'DONUT004', 'MUFFIN005',
-                        'PAIN006', 'CAKE007', 'DANISH009', 'SCONE010', 'COOKIE011',
-                        'BROWNIE012', 'BAGUETTE013', 'TART014', 'ECLAIR015', 'CREAM016',
-                        'PRETZEL017', 'STRUDEL018', 'CAKE019', 'CINNAMON020', 'BREAD021',
-                        'ROLL022', 'MACARON023', 'CROISS024', 'MUFFIN025', 'CANNOLI026',
-                        'BAGEL027', 'DONUT028', 'COFFEE029', 'PUMPER030', 'STROOPWAFEL031'
-                    )
-                """)
-                
-                conn.commit()
-                cursor.close()
-                conn.close()
-                
-                get_data.clear()
-                st.success("✅ Demo data removed! Click Refresh Data to reload.")
-            except Exception as e:
-                st.error(f"Error removing demo data: {e}")
-
-            st.rerun()
-
  # CSV UPLOAD SECTION
     with st.expander("📤 Upload New Data", expanded=False):
         st.markdown("Upload a CSV file with the same format as Online Retail II dataset.")
