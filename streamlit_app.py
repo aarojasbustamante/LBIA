@@ -107,10 +107,13 @@ st.markdown("""
         color: #92400e !important;
     }
     
-    /* Dark text for retention strategies box (green background) */
+    /* White text for retention strategies box (green background) */
     .retention-strategies,
     .retention-strategies *,
-    .retention-strategies p,
+    .retention-strategies p {
+        color: #ffffff !important;
+    }
+    
     .retention-strategies h4 {
         color: #065f46 !important;
     }
@@ -1639,7 +1642,7 @@ bundle together, or avoid discounting too heavily.
                                     padding:16px;border-radius:8px;margin-top:16px;'>
                             <h4 style='margin:0 0 12px 0;color:#065f46 !important;'>💡 AI-Recommended Retention Strategies</h4>
                         """, unsafe_allow_html=True)
-                        st.markdown(f"<p class='retention-strategies' style='margin:0;color:#065f46 !important;white-space:pre-wrap;'>{strategies}</p></div>", unsafe_allow_html=True)
+                        st.markdown(f"<p class='retention-strategies' style='margin:0;color:#ffffff !important;white-space:pre-wrap;'>{strategies}</p></div>", unsafe_allow_html=True)
                         
                     except Exception as e:
                         st.error(f"Error generating strategies: {str(e)}")
