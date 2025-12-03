@@ -358,20 +358,33 @@ def safe_value(df, default=0):
 @st.cache_data(ttl=300)
 def get_data(q):
     conn = None
-    try:
-        conn = mysql.connector.connect(**DB_CONFIG)
-        return pd.read_sql(q, conn)
-    except mysql.connector.Error as db_err:
-        st.error(f"Database connection error: Unable to retrieve data. Please check your connection.")
-        logging.error(f"DB Error: {db_err}")
-        return pd.DataFrame()
-    except Exception as e:
-        st.error(f"Error retrieving data: {str(e)}")
-        logging.error(f"Data retrieval error: {e}")
-        return pd.DataFrame()
-    finally:
-        if conn and conn.is_connected():
-            conn.close()
+    max_retries = 3
+    retry_count = 0
+    
+    while retry_count < max_retries:
+        try:
+            conn = mysql.connector.connect(**DB_CONFIG)
+            df = pd.read_sql(q, conn)
+            return df
+        except mysql.connector.Error as db_err:
+            retry_count += 1
+            if retry_count >= max_retries:
+                st.error(f"Database connection error after {max_retries} attempts. Please refresh the page.")
+                logging.error(f"DB Error: {db_err}")
+                return pd.DataFrame()
+            else:
+                logging.warning(f"DB connection attempt {retry_count} failed, retrying...")
+                import time
+                time.sleep(1)  # Wait 1 second before retry
+        except Exception as e:
+            st.error(f"Error retrieving data: {str(e)}")
+            logging.error(f"Data retrieval error: {e}")
+            return pd.DataFrame()
+        finally:
+            if conn and conn.is_connected():
+                conn.close()
+    
+    return pd.DataFrame()
 
 
 def ai_insight(context, page_key="overview"):
@@ -1647,22 +1660,27 @@ elif page == "Inventory":
     """, unsafe_allow_html=True)
 
     # Calculate inventory metrics
-    inventory_metrics = get_data("""
-        SELECT 
-            p.product_id,
-            COALESCE(p.description, CONCAT('Product #', p.stock_code)) AS Product,
-            p.stock_code,
-            SUM(CASE WHEN ti.is_return=0 THEN ti.quantity ELSE 0 END) AS Total_Sold,
-            SUM(CASE WHEN ti.is_return=1 THEN ABS(ti.quantity) ELSE 0 END) AS Total_Returned,
-            COUNT(DISTINCT t.transaction_id) AS Order_Frequency,
-            DATEDIFF(MAX(t.invoice_date), MIN(t.invoice_date)) AS Days_Active,
-            AVG(ti.unit_price) AS Avg_Price
-        FROM products p
-        JOIN transaction_items ti ON p.product_id = ti.product_id
-        JOIN transactions t ON ti.transaction_id = t.transaction_id
-        GROUP BY p.product_id, p.description, p.stock_code
-        HAVING Total_Sold > 0
-    """)
+    with st.spinner("Loading inventory data..."):
+        try:
+            inventory_metrics = get_data("""
+                SELECT 
+                    p.product_id,
+                    COALESCE(p.description, CONCAT('Product #', p.stock_code)) AS Product,
+                    p.stock_code,
+                    SUM(CASE WHEN ti.is_return=0 THEN ti.quantity ELSE 0 END) AS Total_Sold,
+                    SUM(CASE WHEN ti.is_return=1 THEN ABS(ti.quantity) ELSE 0 END) AS Total_Returned,
+                    COUNT(DISTINCT t.transaction_id) AS Order_Frequency,
+                    DATEDIFF(MAX(t.invoice_date), MIN(t.invoice_date)) AS Days_Active,
+                    AVG(ti.unit_price) AS Avg_Price
+                FROM products p
+                JOIN transaction_items ti ON p.product_id = ti.product_id
+                JOIN transactions t ON ti.transaction_id = t.transaction_id
+                GROUP BY p.product_id, p.description, p.stock_code
+                HAVING Total_Sold > 0
+            """)
+        except Exception as e:
+            st.error(f"Error loading inventory data: {str(e)}")
+            inventory_metrics = pd.DataFrame()
 
     if inventory_metrics is not None and not inventory_metrics.empty:
         # Calculate advanced metrics
@@ -1878,7 +1896,18 @@ elif page == "Inventory":
             st.dataframe(all_products, use_container_width=True, height=400)
     
     else:
-        st.warning("No inventory data available.")
+        st.error("⚠️ Unable to load inventory data")
+        st.info("""
+        **Possible causes:**
+        - Database connection issue
+        - No products with sales data
+        - Query timeout
+        
+        **Try:**
+        1. Refresh the page
+        2. Check if other tabs are working
+        3. Contact support if the issue persists
+        """)
 
 # -----------------------------
 # FORECAST PAGE
