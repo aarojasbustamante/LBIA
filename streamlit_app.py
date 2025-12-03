@@ -1201,6 +1201,7 @@ if page == "Overview":
  # CSV UPLOAD SECTION
     with st.expander("📤 Upload New Data", expanded=False):
         st.markdown("Upload a CSV file with the same format as Online Retail II dataset.")
+        st.info("📋 **Required columns:** Invoice, StockCode, Description, Quantity, InvoiceDate, Price, Customer ID, Country")
         
         uploaded_file = st.file_uploader(
             "Choose a CSV file",
@@ -1209,6 +1210,15 @@ if page == "Overview":
         )
         
         if uploaded_file is not None:
+            # Show preview of uploaded file
+            try:
+                preview_df = pd.read_csv(uploaded_file, encoding='ISO-8859-1', nrows=5)
+                st.write("**Preview of uploaded data (first 5 rows):**")
+                st.dataframe(preview_df, use_container_width=True)
+                uploaded_file.seek(0)  # Reset file pointer
+            except Exception as e:
+                st.warning(f"Could not preview file: {e}")
+            
             if st.button("Process & Load Data", key="upload_btn"):
                 with st.spinner("Processing your data..."):
                     try:
@@ -1307,11 +1317,22 @@ if page == "Overview":
                             conn.close()
                             
                             st.success(f"✅ Successfully loaded {success_count} transaction items!")
+                            st.info("🔄 Refreshing dashboard... Data will update in a moment.")
+                            st.balloons()
                             st.cache_data.clear()
+                            
+                            # Wait a moment before rerun
+                            import time
+                            time.sleep(2)
                             st.rerun()
                             
+                    except mysql.connector.Error as db_err:
+                        st.error(f"❌ Database error: {str(db_err)}")
+                        st.info("💡 Please check your database connection and try again.")
+                        logging.error(f"Upload DB error: {db_err}")
                     except Exception as e:
-                        st.error(f"Error processing file: {str(e)}")
+                        st.error(f"❌ Error processing file: {str(e)}")
+                        st.info("💡 Check that your CSV has all required columns and proper formatting.")
                         logging.error(f"Upload error: {e}")
 
     # Metrics
