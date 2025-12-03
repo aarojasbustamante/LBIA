@@ -358,7 +358,7 @@ def safe_value(df, default=0):
     return default
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=60)  # Cache for 60 seconds for faster updates
 def get_data(q):
     conn = None
     max_retries = 3
@@ -1319,7 +1319,7 @@ if page == "Overview":
                             st.success(f"✅ Successfully loaded {success_count} transaction items!")
                             st.info("🔄 Refreshing dashboard... Data will update in a moment.")
                             st.balloons()
-                            st.cache_data.clear()
+                            get_data.clear()
                             
                             # Wait a moment before rerun
                             import time
