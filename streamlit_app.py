@@ -697,42 +697,6 @@ Database Schema:
         st.rerun()
 
 
-def predict_customer_churn():
-    """Identify customers at risk of churning based on recent activity."""
-    try:
-        churn_risk_customers = get_data("""
-            SELECT 
-                c.customer_id,
-                c.country,
-                COUNT(DISTINCT t.transaction_id) as total_orders,
-                SUM(ti.line_total) as total_spent,
-                MAX(t.invoice_date) as last_order_date,
-                DATEDIFF(CURDATE(), MAX(t.invoice_date)) as days_since_last_order,
-                AVG(t.total_amount) as avg_order_value,
-                CASE 
-                    WHEN DATEDIFF(CURDATE(), MAX(t.invoice_date)) > 180 THEN 'High Risk'
-                    WHEN DATEDIFF(CURDATE(), MAX(t.invoice_date)) > 90 THEN 'Medium Risk'
-                    ELSE 'Low Risk'
-                END as churn_risk
-            FROM customers c
-            JOIN transactions t ON c.customer_id = t.customer_id
-            JOIN transaction_items ti ON t.transaction_id = ti.transaction_id
-            WHERE ti.is_return = 0
-            AND c.customer_id != 0
-            GROUP BY c.customer_id, c.country
-            HAVING total_orders >= 3
-            AND days_since_last_order > 90
-            ORDER BY total_spent DESC, days_since_last_order DESC
-            LIMIT 20
-        """)
-        
-        return churn_risk_customers
-        
-    except Exception as e:
-        logging.error(f"Churn prediction error: {e}")
-        return None
-
-
 def parse_context_for_insights(context, page_key):
     """Parse the context data and generate meaningful business insights."""
     try:
@@ -1472,11 +1436,10 @@ elif page == "Revenue":
     country_df = get_data("""
         SELECT c.country AS Country,
                COUNT(DISTINCT t.transaction_id) AS Orders,
-               SUM(ti.line_total) AS Revenue
+               SUM(t.total_amount) AS Revenue
         FROM customers c
         JOIN transactions t ON c.customer_id=t.customer_id
-        JOIN transaction_items ti ON t.transaction_id=ti.transaction_id
-        WHERE ti.is_return=0
+        WHERE t.customer_id != 0
         GROUP BY c.country
         ORDER BY Revenue DESC
         LIMIT 10
@@ -1581,94 +1544,114 @@ bundle together, or avoid discounting too heavily.
         else:
             st.info("No data available")
     
-    # CUSTOMER CHURN PREDICTION
-    st.markdown("<h3 style='color: #ffffff;'>🎯 Customer Retention Intelligence</h3>", unsafe_allow_html=True)
+    # CUSTOMER CHURN RATE ANALYSIS
+    st.markdown("<h3 style='color: #ffffff;'>🎯 Customer Churn Rate Analysis</h3>", unsafe_allow_html=True)
     st.markdown("""
     <div class='churn-warning' style='background:#fef3c7;border-left:4px solid #f59e0b;padding:16px;
                 border-radius:8px;margin-bottom:16px;'>
         <p style='margin:0;color:#92400e !important;font-size:14px;'>
-            <strong style='color:#92400e !important;'>AI-Powered Churn Prediction:</strong> Identifying high-value customers 
-            at risk of churning based on purchase patterns and recency.
+            <strong style='color:#92400e !important;'>AI-Powered Analysis:</strong> Calculating customer churn rate
+            and identifying retention patterns based on purchase behavior.
         </p>
     </div>
     """, unsafe_allow_html=True)
     
-    churn_customers = predict_customer_churn()
+    # Calculate churn metrics
+    churn_metrics = get_data("""
+        SELECT
+            COUNT(DISTINCT CASE WHEN days_inactive > 180 THEN customer_id END) as churned_customers,
+            COUNT(DISTINCT CASE WHEN days_inactive <= 180 THEN customer_id END) as active_customers,
+            COUNT(DISTINCT customer_id) as total_customers,
+            AVG(CASE WHEN days_inactive > 180 THEN days_inactive END) as avg_days_churned,
+            AVG(CASE WHEN days_inactive <= 180 THEN days_inactive END) as avg_days_active
+        FROM (
+            SELECT
+                c.customer_id,
+                DATEDIFF(CURDATE(), MAX(t.invoice_date)) as days_inactive
+            FROM customers c
+            JOIN transactions t ON c.customer_id = t.customer_id
+            WHERE c.customer_id != 0
+            GROUP BY c.customer_id
+            HAVING COUNT(t.transaction_id) >= 2
+        ) as customer_activity
+    """)
     
-    if churn_customers is not None and not churn_customers.empty:
-        # Summary metrics
-        col1, col2, col3 = st.columns(3)
-        high_risk = len(churn_customers[churn_customers['churn_risk'] == 'High Risk'])
-        medium_risk = len(churn_customers[churn_customers['churn_risk'] == 'Medium Risk'])
-        total_at_risk_value = churn_customers['total_spent'].sum()
+    if churn_metrics is not None and not churn_metrics.empty:
+        churned = int(churn_metrics.iloc[0]['churned_customers'])
+        active = int(churn_metrics.iloc[0]['active_customers'])
+        total = int(churn_metrics.iloc[0]['total_customers'])
+        churn_rate = (churned / total * 100) if total > 0 else 0
         
-        col1.metric("🚨 High Risk Customers", high_risk, help="Not ordered in 180+ days")
-        col2.metric("⚠️ Medium Risk Customers", medium_risk, help="Not ordered in 90-180 days")
-        col3.metric("💰 At-Risk Revenue", f"£{total_at_risk_value:,.0f}", help="Total lifetime value at risk")
+        # Display metrics
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("📊 Churn Rate", f"{churn_rate:.1f}%", help="Customers inactive >180 days")
+        col2.metric("🚨 Churned Customers", f"{churned:,}", help="Not ordered in 180+ days")
+        col3.metric("✅ Active Customers", f"{active:,}", help="Ordered within 180 days")
+        col4.metric("👥 Total Customers", f"{total:,}", help="Customers with 2+ orders")
         
-        # Display churn risk customers
-        st.markdown("#### Top At-Risk Customers")
-        
-        # Format the dataframe for display
-        display_churn = churn_customers.copy()
-        display_churn['total_spent'] = display_churn['total_spent'].apply(lambda x: f"£{x:,.2f}")
-        display_churn['avg_order_value'] = display_churn['avg_order_value'].apply(lambda x: f"£{x:,.2f}")
-        display_churn['total_orders'] = display_churn['total_orders'].apply(lambda x: f"{int(x):,}")
-        
-        st.dataframe(
-            display_churn,
-            use_container_width=True,
-            column_config={
-                "customer_id": "Customer ID",
-                "country": "Country",
-                "total_orders": "Total Orders",
-                "total_spent": "Lifetime Value",
-                "last_order_date": "Last Order",
-                "days_since_last_order": "Days Inactive",
-                "avg_order_value": "Avg Order",
-                "churn_risk": st.column_config.TextColumn(
-                    "Risk Level",
-                    help="High Risk: 180+ days | Medium Risk: 90-180 days"
-                )
-            }
-        )
-        
-        # AI-powered retention strategies
+        # AI Analysis Button
         if "openai" in st.secrets and "api_key" in st.secrets["openai"]:
-            if st.button("🤖 Generate Retention Strategies", key="churn_ai_revenue"):
-                with st.spinner("AI is creating personalized retention strategies..."):
+            if st.button("🤖 Generate AI Churn Analysis", key="churn_ai_analysis"):
+                with st.spinner("AI is analyzing your churn patterns..."):
                     try:
                         client = OpenAI(api_key=st.secrets["openai"]["api_key"])
                         
-                        top_3_customers = churn_customers.head(3).to_dict('records')
-                        customer_summary = "\n".join([
-                            f"- Customer {c['customer_id']} ({c['country']}): £{c['total_spent']:,.0f} lifetime value, {c['days_since_last_order']} days inactive, {c['total_orders']} past orders"
-                            for c in top_3_customers
-                        ])
+                        analysis_context = f"""
+Churn Rate Analysis Data:
+- Current Churn Rate: {churn_rate:.1f}%
+- Churned Customers: {churned:,} customers (inactive >180 days)
+- Active Customers: {active:,} customers (active within 180 days)
+- Total Repeat Customers: {total:,}
+- Average Inactivity (Churned): {churn_metrics.iloc[0]['avg_days_churned']:.0f} days
+- Average Inactivity (Active): {churn_metrics.iloc[0]['avg_days_active']:.0f} days
+"""
                         
                         response = client.chat.completions.create(
                             model="gpt-3.5-turbo",
                             messages=[
-                                {"role": "system", "content": "You are a customer retention specialist. Provide 3 specific, actionable strategies to re-engage churning customers."},
-                                {"role": "user", "content": f"Top at-risk customers:\n{customer_summary}\n\nSuggest 3 personalized retention strategies."}
+                                {"role": "system", "content": "You are a customer retention expert analyzing churn data. Provide clear, actionable insights about customer retention health and specific strategies to reduce churn."},
+                                {"role": "user", "content": f"{analysis_context}\n\nProvide a comprehensive analysis with:\n1. Assessment of the churn rate (is it healthy or concerning?)\n2. Key insights about customer behavior\n3. Top 3 specific strategies to reduce churn\n4. Recommended retention initiatives"}
                             ],
-                            max_tokens=300,
+                            max_tokens=400,
                             temperature=0.7
                         )
                         
-                        strategies = response.choices[0].message.content.strip()
+                        analysis = response.choices[0].message.content.strip()
                         
                         st.markdown("""
-                        <div class='retention-strategies' style='background:#d1fae5;border-left:4px solid #10b981;
-                                    padding:16px;border-radius:8px;margin-top:16px;'>
-                            <h4 style='margin:0 0 12px 0;color:#065f46 !important;'>💡 AI-Recommended Retention Strategies</h4>
+                        <div style='background:#dbeafe;border-left:4px solid #3b82f6;
+                                    padding:20px;border-radius:8px;margin-top:20px;'>
+                            <h4 style='margin:0 0 16px 0;color:#1e40af !important;'>�� AI Churn Analysis</h4>
                         """, unsafe_allow_html=True)
-                        st.markdown(f"<p class='retention-strategies' style='margin:0;color:#ffffff !important;white-space:pre-wrap;'>{strategies}</p></div>", unsafe_allow_html=True)
+                        st.markdown(f"<p style='margin:0;color:#1e3a8a !important;white-space:pre-wrap;line-height:1.6;'>{analysis}</p></div>", unsafe_allow_html=True)
                         
                     except Exception as e:
-                        st.error(f"Error generating strategies: {str(e)}")
+                        st.error(f"Error generating AI analysis: {str(e)}")
+        
+        # Churn visualization
+        st.markdown("#### Customer Status Distribution")
+        fig_churn = px.pie(
+            values=[active, churned],
+            names=['Active Customers', 'Churned Customers'],
+            color_discrete_sequence=['#10b981', '#ef4444'],
+            hole=0.4
+        )
+        fig_churn.update_traces(
+            textposition='inside',
+            textinfo='percent+label',
+            textfont_size=14
+        )
+        fig_churn.update_layout(
+            height=350,
+            showlegend=True,
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='#ffffff', size=12)
+        )
+        st.plotly_chart(fig_churn, use_container_width=True)
+        
     else:
-        st.info("No at-risk customers identified. Great retention!")
+        st.warning("⚠️ Unable to calculate churn metrics. Please ensure you have customer transaction data.")
 
 # -----------------------------
 # INVENTORY PAGE
