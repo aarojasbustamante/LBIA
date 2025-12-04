@@ -1422,29 +1422,50 @@ elif page == "Revenue":
     </div>
     """, unsafe_allow_html=True)
 
-    top_df = get_data("""
-        SELECT p.description AS Product,
-               SUM(ti.quantity) AS Units,
-               SUM(ti.line_total) AS Revenue
-        FROM transaction_items ti
-        JOIN products p ON ti.product_id=p.product_id
-        WHERE ti.is_return=0
-        GROUP BY p.product_id
-        ORDER BY Units DESC
-        LIMIT 10
-    """)
+    # ===== SECTION 1: AI ANALYST =====
+    with st.spinner("Loading revenue data..."):
+        # Get top products
+        top_df = get_data("""
+            SELECT p.description AS Product,
+                   SUM(ti.quantity) AS Units,
+                   SUM(ti.line_total) AS Revenue
+            FROM transaction_items ti
+            JOIN products p ON ti.product_id=p.product_id
+            WHERE ti.is_return=0
+            GROUP BY p.product_id, p.description
+            ORDER BY Revenue DESC
+            LIMIT 10
+        """)
 
-    country_df = get_data("""
-        SELECT c.country AS Country,
-               COUNT(DISTINCT t.transaction_id) AS Orders,
-               ROUND(SUM(t.total_amount), 2) AS Revenue
-        FROM customers c
-        INNER JOIN transactions t ON c.customer_id = t.customer_id
-        GROUP BY c.country
-        ORDER BY Revenue DESC
-        LIMIT 10
-    """)
+        # Get country revenue
+        country_df = get_data("""
+            SELECT c.country AS Country,
+                   COUNT(DISTINCT t.transaction_id) AS Orders,
+                   ROUND(SUM(t.total_amount), 2) AS Revenue
+            FROM customers c
+            INNER JOIN transactions t ON c.customer_id = t.customer_id
+            GROUP BY c.country
+            ORDER BY Revenue DESC
+            LIMIT 10
+        """)
+        
+        # Get customer retention metrics
+        retention_df = get_data("""
+            SELECT 
+                c.customer_id,
+                c.country,
+                COUNT(DISTINCT t.transaction_id) AS total_orders,
+                SUM(t.total_amount) AS total_spent,
+                DATEDIFF(CURDATE(), MAX(t.invoice_date)) AS days_since_last_purchase,
+                DATEDIFF(MAX(t.invoice_date), MIN(t.invoice_date)) AS customer_lifespan_days
+            FROM customers c
+            JOIN transactions t ON c.customer_id = t.customer_id
+            WHERE c.customer_id != 0
+            GROUP BY c.customer_id, c.country
+            HAVING total_orders >= 2
+        """)
 
+    # Prepare AI context
     if top_df is not None and not top_df.empty:
         top_df.index = top_df.index + 1
         top_products_text = ". ".join([
@@ -1452,7 +1473,7 @@ elif page == "Revenue":
             for _, row in top_df.head(5).iterrows()
         ])
     else:
-        top_products_text = "No data available"
+        top_products_text = "No product data available"
         
     if country_df is not None and not country_df.empty:
         country_df.index = country_df.index + 1
@@ -1461,42 +1482,57 @@ elif page == "Revenue":
             for _, row in country_df.head(5).iterrows()
         ])
     else:
-        countries_text = "No data available"
+        countries_text = "No country data available"
+    
+    # Calculate retention metrics for AI
+    if retention_df is not None and not retention_df.empty:
+        at_risk_customers = len(retention_df[retention_df['days_since_last_purchase'] > 180])
+        avg_customer_value = retention_df['total_spent'].mean()
+        retention_text = f"{at_risk_customers} customers at risk (>180 days inactive). Average customer value: £{avg_customer_value:,.0f}"
+    else:
+        retention_text = "No retention data available"
 
     revenue_summary = (
         f"Top 5 Products by Revenue: {top_products_text}. "
-        f"Top 5 Countries by Revenue: {countries_text}."
+        f"Top 5 Countries by Revenue: {countries_text}. "
+        f"Customer Retention: {retention_text}."
     )
     
-    # Only render AI if we have actual data
-    if top_products_text != "No data available" or countries_text != "No data available":
-        render_ai("revenue", "AI commentary on your revenue distribution.", revenue_summary)
+    render_ai("revenue", "AI insights on revenue drivers, geographic performance, and customer retention.", revenue_summary)
 
     st.markdown("""
-This page shows where money is actually coming from - which products drive the most revenue and
-which countries contribute most to your top line. You can use it to decide which SKUs to feature,
-bundle together, or avoid discounting too heavily.
+This page shows where money is actually coming from - which products drive the most revenue, 
+which countries contribute most to your top line, and which customers need re-engagement to prevent churn.
     """)
 
-    # bar chart for top products
+    # ===== SECTION 2: TOP PRODUCTS BY REVENUE (Chart) =====
     if top_df is not None and not top_df.empty:
-        st.subheader("Top Products by Revenue")
-        fig_bar = px.bar(top_df, x="Product", y="Revenue")
+        st.subheader("💰 Top Products by Revenue")
+        fig_bar = px.bar(
+            top_df, 
+            x="Product", 
+            y="Revenue",
+            color="Revenue",
+            color_continuous_scale="Blues"
+        )
         fig_bar.update_layout(
             xaxis_tickangle=-45, 
-            height=320,
+            height=400,
             plot_bgcolor='white',
             paper_bgcolor='white',
+            showlegend=False,
             font=dict(color='#0f172a'),
             xaxis=dict(
                 showgrid=True,
                 gridcolor='#f1f5f9',
+                title='Product',
                 title_font=dict(color='#0f172a'),
                 tickfont=dict(color='#0f172a')
             ),
             yaxis=dict(
                 showgrid=True,
                 gridcolor='#f1f5f9',
+                title='Revenue (£)',
                 title_font=dict(color='#0f172a'),
                 tickfont=dict(color='#0f172a')
             ),
@@ -1505,13 +1541,17 @@ bundle together, or avoid discounting too heavily.
                 font_color="#0f172a"
             )
         )
+        fig_bar.update_coloraxes(showscale=False)
         st.plotly_chart(fig_bar, use_container_width=True)
+    else:
+        st.warning("⚠️ No product revenue data available. Please check database connection.")
 
+    # ===== SECTION 3: TOP PRODUCTS AND REVENUE BY COUNTRY (Tables) =====
     col1, col2 = st.columns(2)
+    
     with col1:
-        st.subheader("Top Products by Revenue")
+        st.subheader("📦 Top Products by Revenue")
         if top_df is not None and not top_df.empty:
-            # Format the dataframe
             display_df = top_df.copy()
             display_df['Revenue'] = display_df['Revenue'].apply(lambda x: f"£{x:,.2f}")
             display_df['Units'] = display_df['Units'].apply(lambda x: f"{int(x):,}")
@@ -1527,10 +1567,10 @@ bundle together, or avoid discounting too heavily.
             )
         else:
             st.info("No data available")
+            
     with col2:
-        st.subheader("Revenue by Country")
+        st.subheader("🌍 Revenue by Country")
         if country_df is not None and not country_df.empty:
-            # Format the dataframe
             display_df2 = country_df.copy()
             display_df2['Revenue'] = display_df2['Revenue'].apply(lambda x: f"£{x:,.2f}")
             display_df2['Orders'] = display_df2['Orders'].apply(lambda x: f"{int(x):,}")
@@ -1546,7 +1586,69 @@ bundle together, or avoid discounting too heavily.
             )
         else:
             st.info("No data available")
+
+    # ===== SECTION 4: CUSTOMER RETENTION INTELLIGENCE =====
+    st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
+    st.subheader("🎯 Customer Retention Intelligence")
+    st.markdown("AI-Powered Churn Analysis: Identifying high-value customers at risk based on purchase recency and behavior patterns.")
     
+    if retention_df is not None and not retention_df.empty:
+        # Classify customers by churn risk
+        retention_df['churn_risk'] = retention_df['days_since_last_purchase'].apply(
+            lambda x: 'High Risk' if x > 180 
+            else 'Medium Risk' if x > 90 
+            else 'Low Risk'
+        )
+        
+        # Get high-value at-risk customers
+        at_risk_high_value = retention_df[
+            (retention_df['churn_risk'].isin(['High Risk', 'Medium Risk'])) &
+            (retention_df['total_spent'] > retention_df['total_spent'].median())
+        ].sort_values('total_spent', ascending=False).head(20)
+        
+        # Metrics
+        total_at_risk = len(retention_df[retention_df['churn_risk'] != 'Low Risk'])
+        high_value_at_risk = len(at_risk_high_value)
+        potential_revenue_loss = at_risk_high_value['total_spent'].sum()
+        
+        col_a, col_b, col_c = st.columns(3)
+        col_a.metric("At-Risk Customers", f"{total_at_risk:,}")
+        col_b.metric("High-Value At Risk", f"{high_value_at_risk}")
+        col_c.metric("Potential Revenue Loss", f"£{potential_revenue_loss:,.0f}")
+        
+        if not at_risk_high_value.empty:
+            st.markdown("**⚠️ High-Value Customers Requiring Re-Engagement:**")
+            
+            # Format for display
+            display_retention = at_risk_high_value.copy()
+            display_retention['total_spent'] = display_retention['total_spent'].apply(lambda x: f"£{x:,.0f}")
+            display_retention['churn_risk'] = display_retention['churn_risk'].apply(
+                lambda x: f"🔴 {x}" if x == "High Risk" else f"🟡 {x}"
+            )
+            display_retention = display_retention[['customer_id', 'country', 'total_orders', 'total_spent', 'days_since_last_purchase', 'churn_risk']]
+            display_retention.columns = ['Customer ID', 'Country', 'Total Orders', 'Total Spent', 'Days Inactive', 'Risk Level']
+            display_retention.index = range(1, len(display_retention) + 1)
+            
+            st.dataframe(display_retention, use_container_width=True, height=400)
+            
+            # Retention strategies
+            st.markdown("""
+            <div style='background:#10b981;padding:16px;border-radius:8px;margin-top:16px;'>
+                <h4 style='color:#065f46;margin:0 0 8px 0;'>💡 Recommended Retention Strategies</h4>
+                <p style='color:#ffffff;margin:0;line-height:1.6;'>
+                • Send personalized win-back emails with exclusive discount codes<br>
+                • Offer loyalty rewards based on past purchase history<br>
+                • Create targeted product recommendations based on previous orders<br>
+                • Implement a VIP customer program for high-value accounts
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.success("✅ No at-risk high-value customers identified. Great retention!")
+            
+    else:
+        st.warning("⚠️ Unable to load customer retention data. Please check database connection.")
+
 # -----------------------------
 # INVENTORY PAGE
 # -----------------------------
