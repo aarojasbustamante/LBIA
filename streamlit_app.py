@@ -9,6 +9,7 @@ import plotly.graph_objects as go
 import mysql.connector
 import requests
 import logging
+import time
 from openai import OpenAI
 
 # Logging
@@ -357,21 +358,42 @@ def safe_value(df, default=0):
 
 @st.cache_data(ttl=300)
 def get_data(q):
-    conn = None
-    try:
-        conn = mysql.connector.connect(**DB_CONFIG)
-        return pd.read_sql(q, conn)
-    except mysql.connector.Error as db_err:
-        st.error(f"Database connection error: Unable to retrieve data. Please check your connection.")
-        logging.error(f"DB Error: {db_err}")
-        return pd.DataFrame()
-    except Exception as e:
-        st.error(f"Error retrieving data: {str(e)}")
-        logging.error(f"Data retrieval error: {e}")
-        return pd.DataFrame()
-    finally:
-        if conn and conn.is_connected():
-            conn.close()
+    """Execute SQL query with retry logic for sleeping database (Clever Cloud free tier)."""
+    max_retries = 8
+    
+    for retry_count in range(max_retries):
+        conn = None
+        try:
+            # Progressive backoff: 2s, 3s, 4s, 5s, 6s, 7s, 8s, 9s (total ~44s max)
+            conn = mysql.connector.connect(
+                **DB_CONFIG,
+                connection_timeout=30  # Allow 30s for connection
+            )
+            result = pd.read_sql(q, conn)
+            if retry_count > 0:
+                logging.info(f"Database connected on attempt {retry_count + 1}")
+            return result
+            
+        except mysql.connector.Error as db_err:
+            if retry_count < max_retries - 1:
+                wait_time = retry_count + 2  # Progressive: 2,3,4,5,6,7,8,9 seconds
+                logging.warning(f"DB attempt {retry_count + 1}/{max_retries} failed. Retry in {wait_time}s...")
+                time.sleep(wait_time)
+            else:
+                st.error(f"⚠️ **Database Unavailable**: Free-tier database sleeping. Couldn't wake after {max_retries} attempts (44s). Refresh page in 30s.")
+                logging.error(f"DB Error after {max_retries} retries: {db_err}")
+                return pd.DataFrame()
+                
+        except Exception as e:
+            st.error(f"Error retrieving data: {str(e)}")
+            logging.error(f"Data retrieval error: {e}")
+            return pd.DataFrame()
+            
+        finally:
+            if conn and conn.is_connected():
+                conn.close()
+    
+    return pd.DataFrame()
 
 
 def ai_insight(context, page_key="overview"):
@@ -1181,6 +1203,9 @@ if page == "Overview":
         <p class='hero-desc'>Real-time retail metrics and AI insights.</p>
     </div>
     """, unsafe_allow_html=True)
+
+    # Database loading info
+    st.info("⏳ **First load may take 15-30 seconds** if the free-tier database is sleeping. Subsequent loads are instant (cached for 5 minutes).")
 
  # CSV UPLOAD SECTION
     with st.expander("📤 Upload New Data", expanded=False):
