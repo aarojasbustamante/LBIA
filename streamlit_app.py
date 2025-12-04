@@ -2078,3 +2078,4 @@ st.markdown(
     "<p style='text-align:center;color:#64748b;font-size:12px;'>© 2025 LBIA — All Rights Reserved</p>",
     unsafe_allow_html=True
 )
+
