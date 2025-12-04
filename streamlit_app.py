@@ -324,14 +324,18 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# DB CONFIG (unchanged)
-DB_CONFIG = {
-    'host': st.secrets["database"]["host"],
-    'port': st.secrets["database"]["port"],
-    'database': st.secrets["database"]["database"],
-    'user': st.secrets["database"]["user"],
-    'password': st.secrets["database"]["password"]
-}
+# DB CONFIG with error handling
+try:
+    DB_CONFIG = {
+        'host': st.secrets["database"]["host"],
+        'port': st.secrets["database"]["port"],
+        'database': st.secrets["database"]["database"],
+        'user': st.secrets["database"]["user"],
+        'password': st.secrets["database"]["password"]
+    }
+except Exception as e:
+    st.error(f"⚠️ **Critical Error**: Database secrets not configured. Go to Streamlit Cloud Settings → Secrets and add your database credentials.")
+    st.stop()
 
 # Free AI using Hugging Face
 import requests
@@ -380,7 +384,14 @@ def get_data(q):
                 logging.warning(f"DB attempt {retry_count + 1}/{max_retries} failed. Retry in {wait_time}s...")
                 time.sleep(wait_time)
             else:
-                st.error(f"⚠️ **Database Unavailable**: Free-tier database sleeping. Couldn't wake after {max_retries} attempts (44s). Refresh page in 30s.")
+                error_msg = str(db_err)
+                # Diagnostic error messages
+                if "Access denied" in error_msg or "Unknown database" in error_msg:
+                    st.error(f"🔒 **Database Auth Error**: {error_msg}. Check Streamlit Cloud Secrets.")
+                elif "Can't connect" in error_msg or "refused" in error_msg:
+                    st.error(f"🌐 **Connection Failed**: Cannot reach database. Host: {DB_CONFIG.get('host', 'N/A')}")
+                else:
+                    st.error(f"⚠️ **Database Unavailable**: Couldn't connect after {max_retries} attempts (44s). Error: {error_msg[:100]}")
                 logging.error(f"DB Error after {max_retries} retries: {db_err}")
                 return pd.DataFrame()
                 
