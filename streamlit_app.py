@@ -362,24 +362,25 @@ def safe_value(df, default=0):
 @st.cache_data(ttl=60)  # Cache for 60 seconds for faster updates
 def get_data(q):
     conn = None
-    max_retries = 3
+    max_retries = 8  # Increased from 3 to 8 for sleeping database
     retry_count = 0
     
     while retry_count < max_retries:
         try:
-            conn = mysql.connector.connect(**DB_CONFIG)
+            conn = mysql.connector.connect(**DB_CONFIG, connection_timeout=30)
             df = pd.read_sql(q, conn)
             return df
         except mysql.connector.Error as db_err:
             retry_count += 1
             if retry_count >= max_retries:
-                st.error(f"Database connection error after {max_retries} attempts. Please refresh the page.")
-                logging.error(f"DB Error: {db_err}")
+                st.error(f"⚠️ **Database Unavailable**: The free-tier database is sleeping. Please wait 30 seconds and refresh the page to wake it up.")
+                logging.error(f"DB Error after {max_retries} attempts: {db_err}")
                 return pd.DataFrame()
             else:
                 logging.warning(f"DB connection attempt {retry_count} failed, retrying...")
                 import time
-                time.sleep(1)  # Wait 1 second before retry
+                # Progressive backoff: wait longer on each retry (2s, 3s, 4s, 5s, 6s, 7s, 8s, 9s)
+                time.sleep(retry_count + 1)
         except Exception as e:
             st.error(f"Error retrieving data: {str(e)}")
             logging.error(f"Data retrieval error: {e}")
@@ -1422,8 +1423,11 @@ elif page == "Revenue":
     </div>
     """, unsafe_allow_html=True)
 
+    # Database warming notice
+    st.info("⏳ **First load may take 15-30 seconds** as the free-tier database wakes up. Subsequent loads will be instant (cached for 60 seconds).")
+
     # ===== SECTION 1: AI ANALYST =====
-    with st.spinner("Loading revenue data..."):
+    with st.spinner("⏳ Connecting to database and loading revenue data... This may take a moment if the database is sleeping."):
         # Get top products
         top_df = get_data("""
             SELECT p.description AS Product,
