@@ -1,3 +1,4 @@
+# Updated: 2025-12-03 - Revenue page optimizations
 # -----------------------------
 # LBIA DASHBOARD - FINAL APP1.PY (UPDATED)
 # -----------------------------
