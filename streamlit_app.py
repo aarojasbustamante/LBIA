@@ -1436,10 +1436,9 @@ elif page == "Revenue":
     country_df = get_data("""
         SELECT c.country AS Country,
                COUNT(DISTINCT t.transaction_id) AS Orders,
-               SUM(t.total_amount) AS Revenue
+               ROUND(SUM(t.total_amount), 2) AS Revenue
         FROM customers c
-        JOIN transactions t ON c.customer_id=t.customer_id
-        WHERE t.customer_id != 0
+        INNER JOIN transactions t ON c.customer_id = t.customer_id
         GROUP BY c.country
         ORDER BY Revenue DESC
         LIMIT 10
@@ -1467,7 +1466,10 @@ elif page == "Revenue":
         f"Top 5 Products by Revenue: {top_products_text}. "
         f"Top 5 Countries by Revenue: {countries_text}."
     )
-    render_ai("revenue", "AI commentary on your revenue distribution.", revenue_summary)
+    
+    # Only render AI if we have actual data
+    if top_products_text != "No data available" or countries_text != "No data available":
+        render_ai("revenue", "AI commentary on your revenue distribution.", revenue_summary)
 
     st.markdown("""
 This page shows where money is actually coming from - which products drive the most revenue and
