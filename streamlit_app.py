@@ -1449,20 +1449,18 @@ elif page == "Revenue":
             LIMIT 10
         """)
         
-        # Get customer retention metrics
+        # Get customer retention metrics - SIMPLIFIED for speed
         retention_df = get_data("""
             SELECT 
-                c.customer_id,
-                c.country,
+                t.customer_id,
                 COUNT(DISTINCT t.transaction_id) AS total_orders,
                 SUM(t.total_amount) AS total_spent,
-                DATEDIFF(CURDATE(), MAX(t.invoice_date)) AS days_since_last_purchase,
-                DATEDIFF(MAX(t.invoice_date), MIN(t.invoice_date)) AS customer_lifespan_days
-            FROM customers c
-            JOIN transactions t ON c.customer_id = t.customer_id
-            WHERE c.customer_id != 0
-            GROUP BY c.customer_id, c.country
+                DATEDIFF(CURDATE(), MAX(t.invoice_date)) AS days_since_last_purchase
+            FROM transactions t
+            WHERE t.customer_id != 0
+            GROUP BY t.customer_id
             HAVING total_orders >= 2
+            LIMIT 500
         """)
 
     # Prepare AI context
@@ -1625,8 +1623,8 @@ which countries contribute most to your top line, and which customers need re-en
             display_retention['churn_risk'] = display_retention['churn_risk'].apply(
                 lambda x: f"🔴 {x}" if x == "High Risk" else f"🟡 {x}"
             )
-            display_retention = display_retention[['customer_id', 'country', 'total_orders', 'total_spent', 'days_since_last_purchase', 'churn_risk']]
-            display_retention.columns = ['Customer ID', 'Country', 'Total Orders', 'Total Spent', 'Days Inactive', 'Risk Level']
+            display_retention = display_retention[['customer_id', 'total_orders', 'total_spent', 'days_since_last_purchase', 'churn_risk']]
+            display_retention.columns = ['Customer ID', 'Total Orders', 'Total Spent', 'Days Inactive', 'Risk Level']
             display_retention.index = range(1, len(display_retention) + 1)
             
             st.dataframe(display_retention, use_container_width=True, height=400)
@@ -1647,7 +1645,7 @@ which countries contribute most to your top line, and which customers need re-en
             st.success("✅ No at-risk high-value customers identified. Great retention!")
             
     else:
-        st.warning("⚠️ Unable to load customer retention data. Please check database connection.")
+        st.error("⚠️ **Database Connection Error**: Unable to load customer retention data. This is likely due to the free-tier database sleeping. Please wait a moment and refresh the page, or contact support if this persists.")
 
 # -----------------------------
 # INVENTORY PAGE
